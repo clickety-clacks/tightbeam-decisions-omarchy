@@ -59,7 +59,7 @@ Item {
       "",
       "WHAT TIGHTBEAM IS: an agent-coordination substrate. Agent sessions hold",
       "assignments, attest to work they claim, and record artifacts pointing at what",
-      "they produced. It runs on the Gibson gateway. When an agent hits a question",
+      "they produced. It runs on the " + host + " gateway. When an agent hits a question",
       "only its human owner can settle, it files an operator decision request — this",
       "one. Recording a ruling wakes the agent that asked and it proceeds.",
       "",
@@ -67,9 +67,11 @@ Item {
       "requests assume. They are written by agents deep in a task, in that task's",
       "jargon. Your job is to make this one legible, then help him decide.",
       "",
-      "GO AND LOOK BEFORE YOU EXPLAIN. The context is on Gibson, not in this prompt.",
+      "GO AND LOOK BEFORE YOU EXPLAIN. The context is on " + host + ", not in this prompt.",
       "Run read-only lookups over ssh:",
-      "  ssh mike@" + host + " /home/" + user + "/.local/bin/tightbeam <cmd> --as-user " + user,
+      "  ssh " + user + "@" + host + " /home/" + user + "/.local/bin/tightbeam <cmd> --as-user " + user,
+      "Do not announce that you are about to look. Look first, then answer; never",
+      "open with a line about what you are going to do.",
       "Useful commands: attests, artifacts, work-item-get, work-item-trace, topline,",
       "transcript, assignments, decision-requests. Id prefixes: att_ attestation,",
       "art_ artifact, asg_ assignment, wi_ work item, dr_ decision request. Follow",
@@ -385,7 +387,7 @@ Item {
       }
 
       // The agreed ruling. This is the only control that changes anything on
-      // Gibson, and it takes a deliberate click.
+      // the Tightbeam host, and it takes a deliberate click.
       Rectangle {
         visible: root.proposedRule > 0 && root.pendingPermissionId === ""
         width: ruleLabel.implicitWidth + Style.space(30)

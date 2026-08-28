@@ -23,6 +23,10 @@ Panel {
   // kind -> bool. A kind absent from this map uses the default below.
   property var enabledKinds: ({})
   property bool kindsLoaded: false
+  // The configured host, used for every user-facing mention of it. Hardcoding
+  // "Gibson" into labels meant repointing the host setting left the UI naming
+  // a machine it was no longer talking to.
+  readonly property string hostName: String(setting("host", "gibson"))
   readonly property string kindSettingsPath: Quickshell.env("HOME") + "/.config/omarchy/tightbeam-decisions.json"
   property var requests: []
   property bool hasNew: false
@@ -174,7 +178,7 @@ Panel {
   Process {
     id: fetchProcess
     stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.applyPayload(text) }
-    stderr: StdioCollector { waitForEnd: true; onStreamFinished: if (String(text || "").trim() !== "") root.statusText = "Cannot reach Tightbeam on Gibson" }
+    stderr: StdioCollector { waitForEnd: true; onStreamFinished: if (String(text || "").trim() !== "") root.statusText = "Cannot reach Tightbeam on " + root.hostName }
     onExited: function(code) { root.refreshing = false; if (code !== 0 && root.statusText === "") root.statusText = "Refresh failed" }
   }
   Process { id: seenProcess }
@@ -205,7 +209,7 @@ Panel {
     verticalPadding: 8.75
     tooltipText: root.refreshing
       ? "Refreshing Tightbeam…"
-      : root.requests.length + " Gibson decision request" + (root.requests.length === 1 ? "" : "s")
+      : root.requests.length + " " + root.hostName + " decision request" + (root.requests.length === 1 ? "" : "s")
     onPressed: function(buttonCode) { if (buttonCode === Qt.MiddleButton) root.refreshNow(); else root.toggle() }
     Rectangle {
       visible: root.hasNew
@@ -249,7 +253,7 @@ Panel {
         PanelHero {
           width: parent.width
           title: root.requests.length + " decision request" + (root.requests.length === 1 ? "" : "s")
-          meta: "Tightbeam · Gibson" + (root.refreshing ? " · refreshing…" : "")
+          meta: "Tightbeam · " + root.hostName + (root.refreshing ? " · refreshing…" : "")
           foreground: root.foreground
           fontFamily: root.fontFamily
           iconComponent: Component { Text { text: "󰄬"; color: root.foreground; font.family: root.fontFamily; font.pixelSize: Style.font.display } }

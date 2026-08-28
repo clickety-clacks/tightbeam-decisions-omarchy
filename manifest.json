@@ -4,22 +4,52 @@
   "name": "Tightbeam Decisions",
   "version": "1.0.0",
   "author": "Mike",
-  "description": "Open Tightbeam decision requests on Gibson with keyboard ruling.",
-  "kinds": ["bar-widget"],
+  "description": "Open Tightbeam decision requests with keyboard ruling.",
+  "kinds": [
+    "bar-widget"
+  ],
   "activation": "on-demand",
-  "entryPoints": { "barWidget": "Panel.qml" },
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
   "barWidget": {
     "displayName": "Tightbeam decisions",
-    "description": "Shows open Gibson decision requests and lets you answer by number.",
+    "description": "Shows open Tightbeam decision requests and lets you answer by number.",
     "category": "AI",
-    "aliases": ["tightbeam", "decisions", "decision-requests"],
+    "aliases": [
+      "tightbeam",
+      "decisions",
+      "decision-requests"
+    ],
     "allowMultiple": false,
     "defaultSection": "right",
-    "defaults": { "host": "gibson", "user": "mike", "refreshIntervalSec": 30 },
+    "defaults": {
+      "host": "gibson",
+      "user": "mike",
+      "refreshIntervalSec": 30
+    },
     "schema": [
-      { "key": "host", "type": "string", "label": "Tightbeam host", "defaultValue": "gibson" },
-      { "key": "user", "type": "string", "label": "Tightbeam user", "defaultValue": "mike" },
-      { "key": "refreshIntervalSec", "type": "integer", "label": "Refresh interval (seconds)", "min": 10, "max": 600, "step": 10, "defaultValue": 30 }
+      {
+        "key": "host",
+        "type": "string",
+        "label": "Tightbeam host",
+        "defaultValue": "gibson"
+      },
+      {
+        "key": "user",
+        "type": "string",
+        "label": "Tightbeam user",
+        "defaultValue": "mike"
+      },
+      {
+        "key": "refreshIntervalSec",
+        "type": "integer",
+        "label": "Refresh interval (seconds)",
+        "min": 10,
+        "max": 600,
+        "step": 10,
+        "defaultValue": 30
+      }
     ]
   }
 }
