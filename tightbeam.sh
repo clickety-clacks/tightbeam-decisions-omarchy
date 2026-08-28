@@ -74,6 +74,6 @@ tb() {
 
   ssh "${TB_SSH_OPTS[@]}" "$TB_HOST" \
     "cli=\$(command -v tightbeam 2>/dev/null) || cli=\"\$HOME/.local/bin/tightbeam\"
-     [ -x \"\$cli\" ] || { echo \"No tightbeam CLI on \$(hostname)\" >&2; exit 127; }
+     [ -x \"\$cli\" ] || { echo \"No tightbeam CLI on \$(hostname). Install it there, or point the widget at a different host.\" >&2; exit 127; }
      \"\$cli\"${quoted}${as_user_clause}"
 }

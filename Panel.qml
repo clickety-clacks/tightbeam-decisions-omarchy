@@ -35,6 +35,9 @@ Panel {
   property var requests: []
   property bool hasNew: false
   property bool refreshing: false
+  // Set when a fetch fails, so the empty state does not read as "nothing to
+  // do" when the truth is "cannot reach Tightbeam" or "not configured yet".
+  property bool fetchFailed: false
   property bool replying: false
   property string statusText: ""
   property var detailRequest: null
@@ -103,10 +106,24 @@ Panel {
       var payload = JSON.parse(String(text || ""))
       allRequests = payload.requests || []
       kinds = payload.kinds || []
+      fetchFailed = false
       applyFilter()
       statusText = ""
       if (opened) Qt.callLater(function() { markSeen() })
     } catch (error) { statusText = "Could not read Tightbeam response" }
+  }
+  // The scripts write one purposeful, actionable line -- a missing CLI names
+  // what to install, ssh names what it could not reach. Replacing that with a
+  // generic sentence threw away the only text that told you what to do. ssh
+  // can be chattier, so keep the last non-empty line: the one that says what
+  // actually failed.
+  function describeError(raw) {
+    var lines = String(raw || "").split("\n")
+    for (var index = lines.length - 1; index >= 0; index--) {
+      var line = lines[index].trim()
+      if (line !== "") return line.length > 240 ? line.substring(0, 237) + "…" : line
+    }
+    return ""
   }
   function hasRequest(id) {
     for (var index = 0; index < requests.length; index++)
@@ -182,8 +199,20 @@ Panel {
   Process {
     id: fetchProcess
     stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.applyPayload(text) }
-    stderr: StdioCollector { waitForEnd: true; onStreamFinished: if (String(text || "").trim() !== "") root.statusText = "Cannot reach Tightbeam on " + root.hostName }
-    onExited: function(code) { root.refreshing = false; if (code !== 0 && root.statusText === "") root.statusText = "Refresh failed" }
+    stderr: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var described = root.describeError(text)
+        if (described !== "") { root.statusText = described; root.fetchFailed = true }
+      }
+    }
+    onExited: function(code) {
+      root.refreshing = false
+      if (code !== 0) {
+        root.fetchFailed = true
+        if (root.statusText === "") root.statusText = "Could not reach Tightbeam on " + root.hostName
+      }
+    }
   }
   Process { id: seenProcess }
   Process {
@@ -335,7 +364,7 @@ Panel {
         }
 
         Text {
-          visible: root.requests.length === 0
+          visible: root.requests.length === 0 && !root.fetchFailed
           width: parent.width
           text: root.allRequests.length > 0
             ? "No requests in the kinds you have switched on."
