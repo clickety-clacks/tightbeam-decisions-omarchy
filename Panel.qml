@@ -23,10 +23,14 @@ Panel {
   // kind -> bool. A kind absent from this map uses the default below.
   property var enabledKinds: ({})
   property bool kindsLoaded: false
-  // The configured host, used for every user-facing mention of it. Hardcoding
-  // "Gibson" into labels meant repointing the host setting left the UI naming
-  // a machine it was no longer talking to.
-  readonly property string hostName: String(setting("host", "gibson"))
+  // Blank host means this machine is itself an assimilated Tightbeam node and
+  // the CLI runs locally; anything else is an ssh destination. The scripts
+  // resolve the transport, so the panel only passes the settings through.
+  readonly property string tbHost: String(setting("host", ""))
+  // The Tightbeam identity. The older `user` key is still read so an existing
+  // shell.json keeps working. Blank means the account the CLI runs as.
+  readonly property string tbAsUser: String(setting("asUser", setting("user", "")))
+  readonly property string hostName: tbHost === "" ? "this machine" : tbHost
   readonly property string kindSettingsPath: Quickshell.env("HOME") + "/.config/omarchy/tightbeam-decisions.json"
   property var requests: []
   property bool hasNew: false
@@ -43,7 +47,7 @@ Panel {
   function refreshNow() {
     if (fetchProcess.running) return
     refreshing = true
-    fetchProcess.command = [script("fetch.sh"), String(setting("host", "gibson")), String(setting("user", "mike"))]
+    fetchProcess.command = [script("fetch.sh"), root.tbHost, root.tbAsUser]
     fetchProcess.running = true
   }
   // effort requests are high-volume and were hardcoded out of fetch.sh before
@@ -122,7 +126,7 @@ Panel {
     if (!detailRequest || replying) return
     replying = true
     statusText = "Recording decision…"
-    replyProcess.command = [script("reply.sh"), String(setting("host", "gibson")), String(setting("user", "mike")), detailRequest.id, String(choiceNumber)]
+    replyProcess.command = [script("reply.sh"), root.tbHost, root.tbAsUser, detailRequest.id, String(choiceNumber)]
     replyProcess.running = true
   }
   function openRequest(index) {
@@ -209,7 +213,7 @@ Panel {
     verticalPadding: 8.75
     tooltipText: root.refreshing
       ? "Refreshing Tightbeam…"
-      : root.requests.length + " " + root.hostName + " decision request" + (root.requests.length === 1 ? "" : "s")
+      : root.requests.length + " decision request" + (root.requests.length === 1 ? "" : "s") + " on " + root.hostName
     onPressed: function(buttonCode) { if (buttonCode === Qt.MiddleButton) root.refreshNow(); else root.toggle() }
     Rectangle {
       visible: root.hasNew
@@ -446,8 +450,8 @@ Panel {
           anchors.left: parent.left
           anchors.right: parent.right
           anchors.bottom: parent.bottom
-          host: String(root.setting("host", "gibson"))
-          user: String(root.setting("user", "mike"))
+          host: root.tbHost
+          user: root.tbAsUser
           messageScript: root.script("message.sh")
           onRuleRequested: function(choiceNumber) { root.submitChoice(choiceNumber) }
         }

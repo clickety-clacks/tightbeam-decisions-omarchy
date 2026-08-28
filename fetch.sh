@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-host="${1:-gibson}"
-user="${2:-mike}"
+# Args: [host] [asUser]. A blank host means this machine is the Tightbeam node.
+export TB_HOST="${1:-}"
+export TB_AS_USER="${2:-}"
+source "$(dirname "$(readlink -f "$0")")/tightbeam.sh"
+
 state_dir="${XDG_STATE_HOME:-${HOME}/.local/state}/omarchy-tightbeam-decisions"
 seen_file="${state_dir}/seen-ids"
-ssh_opts=(-F /dev/null -i "${HOME}/.ssh/id_ed25519" -o BatchMode=yes -o ConnectTimeout=5 -o UserKnownHostsFile="${HOME}/.ssh/known_hosts")
 
-payload=$(ssh "${ssh_opts[@]}" "${user}@${host}" "/home/${user}/.local/bin/tightbeam decision-requests --status open --as-user ${user}")
+payload=$(tb decision-requests --status open)
 seen='[]'
 if [[ -r "$seen_file" ]]; then seen=$(jq -Rsc 'split("\n") | map(select(length > 0))' "$seen_file"); fi
 

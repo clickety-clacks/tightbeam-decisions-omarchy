@@ -24,13 +24,35 @@ Item {
   id: root
 
   property var request: null
-  property string host: "gibson"
-  property string user: "mike"
+  // Blank host: the CLI runs on this machine. Blank user: whatever account
+  // the CLI runs as. Both are resolved by tightbeam.sh, not assumed here.
+  property string host: ""
+  property string user: ""
   property string messageScript: ""
+  readonly property string hostLabel: host === "" ? "this machine" : "the " + host + " gateway"
+  readonly property string quotedHost: host === "" ? "\"\"" : host
+  readonly property string quotedUser: user === "" ? "\"\"" : user
+  // Read-only lookups: run the CLI directly when this machine is the node,
+  // otherwise hop over ssh. --as-user is only pinned when it was configured.
+  readonly property string lookupCommand: (host === "" ? "tightbeam" : "ssh " + host + " tightbeam")
+    + (user === "" ? "" : " --as-user " + user)
   // The ACP bridge shipped with the Ask plugin: a standalone Node script
   // speaking NDJSON over stdio. Reused as-is rather than vendored.
   readonly property string bridgePath: Quickshell.env("HOME")
     + "/.config/omarchy/plugins/clickety-clacks.ask/bridge/bridge.js"
+
+  // The bridge ships with the Ask plugin, in a different repo, so it can
+  // disappear without anything here changing. Detect that rather than letting
+  // the process just exit -- the generic "session ended" message would send
+  // you looking in the wrong place entirely.
+  property bool bridgeMissing: false
+
+  FileView {
+    path: root.bridgePath
+    printErrors: false
+    onLoaded: root.bridgeMissing = false
+    onLoadFailed: root.bridgeMissing = true
+  }
 
   signal ruleRequested(int choiceNumber)
 
@@ -59,7 +81,7 @@ Item {
       "",
       "WHAT TIGHTBEAM IS: an agent-coordination substrate. Agent sessions hold",
       "assignments, attest to work they claim, and record artifacts pointing at what",
-      "they produced. It runs on the " + host + " gateway. When an agent hits a question",
+      "they produced. It runs on " + hostLabel + ". When an agent hits a question",
       "only its human owner can settle, it files an operator decision request — this",
       "one. Recording a ruling wakes the agent that asked and it proceeds.",
       "",
@@ -67,9 +89,9 @@ Item {
       "requests assume. They are written by agents deep in a task, in that task's",
       "jargon. Your job is to make this one legible, then help him decide.",
       "",
-      "GO AND LOOK BEFORE YOU EXPLAIN. The context is on " + host + ", not in this prompt.",
+      "GO AND LOOK BEFORE YOU EXPLAIN. The context is on " + hostLabel + ", not in this prompt.",
       "Run read-only lookups over ssh:",
-      "  ssh " + user + "@" + host + " /home/" + user + "/.local/bin/tightbeam <cmd> --as-user " + user,
+      "  " + lookupCommand + " <cmd>",
       "Do not announce that you are about to look. Look first, then answer; never",
       "open with a line about what you are going to do.",
       "Useful commands: attests, artifacts, work-item-get, work-item-trace, topline,",
@@ -99,7 +121,7 @@ Item {
       "",
       "SENDING A NOTE WITHOUT RULING: if he wants to ask the raising agent something,",
       "or hand it context, without resolving the request, run:",
-      "  " + messageScript + " " + host + " " + user + " " + (request ? request.id : "") + " \"<text>\"",
+      "  " + messageScript + " " + quotedHost + " " + quotedUser + " " + (request ? request.id : "") + " \"<text>\"",
       "Agree the exact wording with him first.",
       "",
       "THE REQUEST:",
@@ -273,7 +295,9 @@ Item {
       if (!root.sessionLost && root.waiting) {
         root.waiting = false
         root.sessionLost = true
-        root.statusText = "ACP session ended · reopen to retry"
+        root.statusText = root.bridgeMissing
+          ? "Chat needs the Ask plugin: its ACP bridge is missing at " + root.bridgePath
+          : "ACP session ended · reopen to retry"
       }
     }
   }

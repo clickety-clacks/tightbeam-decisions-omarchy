@@ -24,8 +24,8 @@
     "allowMultiple": false,
     "defaultSection": "right",
     "defaults": {
-      "host": "gibson",
-      "user": "mike",
+      "host": "",
+      "asUser": "",
       "refreshIntervalSec": 30
     },
     "schema": [
@@ -33,13 +33,15 @@
         "key": "host",
         "type": "string",
         "label": "Tightbeam host",
-        "defaultValue": "gibson"
+        "description": "Blank when this machine is itself a Tightbeam node. Otherwise an ssh destination: a hostname, user@host, or an alias from ~/.ssh/config. Key-based auth is required.",
+        "defaultValue": ""
       },
       {
-        "key": "user",
+        "key": "asUser",
         "type": "string",
         "label": "Tightbeam user",
-        "defaultValue": "mike"
+        "description": "Blank uses the account the CLI runs as.",
+        "defaultValue": ""
       },
       {
         "key": "refreshIntervalSec",
