@@ -11,9 +11,13 @@ payload=$(ssh "${ssh_opts[@]}" "${user}@${host}" "/home/${user}/.local/bin/tight
 seen='[]'
 if [[ -r "$seen_file" ]]; then seen=$(jq -Rsc 'split("\n") | map(select(length > 0))' "$seen_file"); fi
 
+# Every kind is returned. Which kinds are shown is a UI toggle now, not a
+# filter baked in here, so a newly-introduced kind cannot go invisible just
+# because this script has never heard of it. `kinds` lists what the org is
+# currently raising, so the panel can offer a toggle even for a kind that is
+# switched off and therefore absent from `requests`.
 jq -c --argjson seen "$seen" '
   [.decisionRequests[] |
-    select(.kind != "effort") |
     . as $request |
     {
       id,
@@ -26,5 +30,10 @@ jq -c --argjson seen "$seen" '
       options: [(.options // [])[] | if type == "object" then .label else . end],
       isNew: (($seen | index($request.id)) == null)
     }
-  ] | { requests: ., hasNew: any(.isNew), count: length }
+  ] as $all
+  | {
+      requests: $all,
+      kinds: ($all | map(.kind) | unique),
+      count: ($all | length)
+    }
 ' <<<"$payload"

@@ -15,6 +15,15 @@ Panel {
   readonly property color urgent: bar ? bar.urgent : Color.urgent
   readonly property color dim: Qt.darker(foreground, 1.55)
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
+  // allRequests is the raw fetch; `requests` is the filtered view the panel
+  // renders. Filtering lives here rather than in fetch.sh so a kind that is
+  // switched off is still known about and can be switched back on.
+  property var allRequests: []
+  property var kinds: []
+  // kind -> bool. A kind absent from this map uses the default below.
+  property var enabledKinds: ({})
+  property bool kindsLoaded: false
+  readonly property string kindSettingsPath: Quickshell.env("HOME") + "/.config/omarchy/tightbeam-decisions.json"
   property var requests: []
   property bool hasNew: false
   property bool refreshing: false
@@ -33,16 +42,61 @@ Panel {
     fetchProcess.command = [script("fetch.sh"), String(setting("host", "gibson")), String(setting("user", "mike"))]
     fetchProcess.running = true
   }
+  // effort requests are high-volume and were hardcoded out of fetch.sh before
+  // these toggles existed; keeping them off by default preserves that view.
+  function kindEnabled(kind) {
+    var value = enabledKinds ? enabledKinds[kind] : undefined
+    return value === undefined || value === null ? kind !== "effort" : !!value
+  }
+  function toggleKind(kind) {
+    var next = {}
+    for (var key in enabledKinds) next[key] = enabledKinds[key]
+    next[kind] = !kindEnabled(kind)
+    enabledKinds = next
+    applyFilter()
+    if (kindsLoaded) kindSaveTimer.restart()
+  }
+  function countForKind(kind) {
+    var total = 0
+    for (var index = 0; index < allRequests.length; index++)
+      if (allRequests[index].kind === kind) total++
+    return total
+  }
+  function applyFilter() {
+    var visible = []
+    var anyNew = false
+    for (var index = 0; index < allRequests.length; index++) {
+      var request = allRequests[index]
+      if (!kindEnabled(request.kind)) continue
+      visible.push(request)
+      if (request.isNew) anyNew = true
+    }
+    requests = visible
+    hasNew = anyNew
+    if (requests.length > 0 && requestList.currentIndex < 0) requestList.currentIndex = 0
+    if (requestList.currentIndex >= requests.length) requestList.currentIndex = Math.max(0, requests.length - 1)
+    if (detailWindow.visible && detailRequest && !hasRequest(detailRequest.id))
+      detailWindow.visible = false
+  }
+  function loadKindSettings(raw) {
+    var data = {}
+    try { data = JSON.parse(raw || "{}") } catch (error) { data = {} }
+    if (!data || typeof data !== "object") data = {}
+    enabledKinds = (data.enabledKinds && typeof data.enabledKinds === "object") ? data.enabledKinds : {}
+    kindsLoaded = true
+    applyFilter()
+  }
+  function flushKindSettings() {
+    if (!kindsLoaded) return
+    kindSettingsFile.setText(JSON.stringify({ enabledKinds: enabledKinds }, null, 2) + "\n")
+  }
   function applyPayload(text) {
     try {
       var payload = JSON.parse(String(text || ""))
-      requests = payload.requests || []
-      hasNew = !!payload.hasNew
-      if (requests.length > 0 && requestList.currentIndex < 0) requestList.currentIndex = 0
-      if (requestList.currentIndex >= requests.length) requestList.currentIndex = Math.max(0, requests.length - 1)
+      allRequests = payload.requests || []
+      kinds = payload.kinds || []
+      applyFilter()
       statusText = ""
-      if (detailWindow.visible && detailRequest && !hasRequest(detailRequest.id))
-        detailWindow.visible = false
       if (opened) Qt.callLater(function() { markSeen() })
     } catch (error) { statusText = "Could not read Tightbeam response" }
   }
@@ -94,6 +148,26 @@ Panel {
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
   Component.onCompleted: refreshNow()
+
+  FileView {
+    id: kindSettingsFile
+    path: root.kindSettingsPath
+    watchChanges: true
+    atomicWrites: true
+    printErrors: false
+    onLoaded: root.loadKindSettings(text())
+    // First run: the file does not exist yet. Without this the toggles would
+    // never be marked loaded and a change would never be written.
+    onLoadFailed: root.loadKindSettings("")
+    onFileChanged: reload()
+  }
+
+  Timer {
+    id: kindSaveTimer
+    interval: 200
+    repeat: false
+    onTriggered: root.flushKindSettings()
+  }
   onOpenedChanged: if (opened) { refreshNow(); Qt.callLater(function() { markSeen(); listKeys.forceActiveFocus() }) }
 
   Timer { interval: Math.max(10, Number(root.setting("refreshIntervalSec", 30))) * 1000; running: true; repeat: true; onTriggered: root.refreshNow() }
@@ -196,6 +270,30 @@ Panel {
           }
         }
 
+        // One toggle per kind the org is currently raising. Built from
+        // `kinds` rather than from the visible requests, so switching a kind
+        // off does not remove the control that switches it back on.
+        Flow {
+          width: parent.width
+          spacing: Style.space(6)
+          visible: root.kinds.length > 0
+          Repeater {
+            model: root.kinds
+            delegate: Button {
+              required property var modelData
+              readonly property bool on: root.kindEnabled(modelData)
+              text: modelData + " " + root.countForKind(modelData)
+              tooltipText: (on ? "Hide" : "Show") + " " + modelData + " decision requests"
+              foreground: on ? root.foreground : root.dim
+              fontFamily: root.fontFamily
+              bordered: on
+              horizontalPadding: Style.spacing.controlGap
+              verticalPadding: Style.spacing.labelGap
+              onClicked: root.toggleKind(modelData)
+            }
+          }
+        }
+
         ListView {
           id: requestList
           width: parent.width
@@ -231,7 +329,9 @@ Panel {
         Text {
           visible: root.requests.length === 0
           width: parent.width
-          text: "No open decision requests."
+          text: root.allRequests.length > 0
+            ? "No requests in the kinds you have switched on."
+            : "No open decision requests."
           color: root.dim; font.family: root.fontFamily; font.pixelSize: Style.font.body
         }
         Text { visible: root.statusText !== ""; width: parent.width; text: root.statusText; color: root.statusText.indexOf("Recorded:") === 0 ? root.foreground : root.urgent; font.family: root.fontFamily; font.pixelSize: Style.font.caption; wrapMode: Text.WordWrap }
