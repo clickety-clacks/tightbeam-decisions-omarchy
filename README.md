@@ -25,7 +25,15 @@ first, then `~/.local/bin/tightbeam`, on whichever machine ends up running it.
 
 ## Prerequisites
 
-**Local:** the `tightbeam` CLI installed and on `PATH` (or in `~/.local/bin`).
+**Local:** this machine has to be an assimilated Tightbeam node. Assimilation
+is driven *from* an existing node, not from here — run this on one of them:
+
+```sh
+tightbeam assimilate <this-machine>
+```
+
+That installs the CLI and adapters and registers the host. Credentials never
+transit between machines, so run `tightbeam onboard` here afterwards.
 
 **Remote:** key-based ssh to the host. Connections use `BatchMode=yes` and will
 never prompt, so an agent or a configured `IdentityFile` must already

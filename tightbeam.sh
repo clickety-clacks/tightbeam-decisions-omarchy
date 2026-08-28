@@ -50,7 +50,7 @@ tb() {
   if tb_is_local; then
     local cli
     cli=$(tb_local_cli) || {
-      echo "No tightbeam CLI on this machine. Set a Tightbeam host, or install the CLI to make this an assimilated node." >&2
+      echo "No tightbeam CLI on this machine. Run 'tightbeam assimilate $(hostname -s)' on any Tightbeam node to assimilate it, or set up an ssh target in this widget's Tightbeam host setting." >&2
       return 127
     }
     if [[ $has_as_user == false ]]; then
@@ -74,6 +74,6 @@ tb() {
 
   ssh "${TB_SSH_OPTS[@]}" "$TB_HOST" \
     "cli=\$(command -v tightbeam 2>/dev/null) || cli=\"\$HOME/.local/bin/tightbeam\"
-     [ -x \"\$cli\" ] || { echo \"No tightbeam CLI on \$(hostname). Install it there, or point the widget at a different host.\" >&2; exit 127; }
+     [ -x \"\$cli\" ] || { echo \"No tightbeam CLI on \$(hostname). Run 'tightbeam assimilate \$(hostname)' on any Tightbeam node to assimilate it, or point this widget at a different ssh target.\" >&2; exit 127; }
      \"\$cli\"${quoted}${as_user_clause}"
 }
