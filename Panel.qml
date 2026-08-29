@@ -55,6 +55,18 @@ Panel {
   // shell.json keeps working. Blank means the account the CLI runs as.
   readonly property string tbAsUser: String(setting("asUser", setting("user", "")))
   readonly property string hostName: tbHost === "" ? "this machine" : tbHost
+  // Height of the header pane in the detail window. -1 means "decide for me":
+  // fit the content, but never let it take more than 45% of the window. A drag
+  // pins it; double-clicking the grip returns it to auto, and opening another
+  // request does too, since the right default depends on that request's text.
+  property real headerSplit: -1
+  readonly property real headerSplitMin: Style.space(44)
+  readonly property real headerSplitMax: Math.round(detailWindow.height * 0.75)
+  readonly property real headerAutoHeight: Math.min(detailHeader.implicitHeight,
+                                                    Math.round(detailWindow.height * 0.45))
+  readonly property real headerHeight: headerSplit < 0
+    ? headerAutoHeight
+    : Math.max(headerSplitMin, Math.min(headerSplitMax, headerSplit))
   readonly property string kindSettingsPath: Quickshell.env("HOME") + "/.config/omarchy/tightbeam-decisions.json"
   property var requests: []
   property bool hasNew: false
@@ -200,6 +212,7 @@ Panel {
     replyProcess.running = true
   }
   function openRequest(index) {
+    headerSplit = -1
     if (index < 0 || index >= requests.length) return
     requestList.currentIndex = index
     detailRequest = requests[index]
@@ -284,7 +297,7 @@ Panel {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: "󰭙"
+    text: "󰗑"
     labelVisible: true
     horizontalMargin: 12
     verticalPadding: 8.75
@@ -342,7 +355,7 @@ Panel {
           meta: "Tightbeam · " + root.hostName + (root.refreshing ? " · refreshing…" : "")
           foreground: root.foreground
           fontFamily: root.fontFamily
-          iconComponent: Component { Text { text: "󰄬"; color: root.foreground; font.family: root.fontFamily; font.pixelSize: root.displaySize } }
+          iconComponent: Component { Text { text: "󰗑"; color: root.foreground; font.family: root.fontFamily; font.pixelSize: root.displaySize } }
           trailingControl: Component {
             Button {
               iconText: "󰑐"
@@ -493,8 +506,7 @@ Panel {
           anchors.top: parent.top
           anchors.left: parent.left
           anchors.right: parent.right
-          height: Math.min(detailHeader.implicitHeight,
-                           Math.round(detailWindow.height * 0.45))
+          height: root.headerHeight
           contentHeight: detailHeader.implicitHeight
           clip: true
           boundsBehavior: Flickable.StopAtBounds
@@ -592,6 +604,42 @@ Panel {
           height: detailHeaderScroll.height + Style.space(24) + Style.space(16)
           color: root.mixColor(Color.background, root.foreground, 0.07)
           z: -1
+        }
+
+        // Drag to move the split; double-click to hand it back to auto.
+        MouseArea {
+          id: splitGrip
+          anchors.top: detailHeaderBand.bottom
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.leftMargin: -Style.space(24)
+          anchors.rightMargin: -Style.space(24)
+          anchors.topMargin: -Style.space(5)
+          height: Style.space(10)
+          cursorShape: Qt.SizeVerCursor
+          hoverEnabled: true
+          z: 2
+          property real pressScreenY: 0
+          property real pressHeight: 0
+          onPressed: function(mouse) {
+            pressScreenY = mapToItem(null, mouse.x, mouse.y).y
+            pressHeight = root.headerHeight
+          }
+          onPositionChanged: function(mouse) {
+            if (!pressed) return
+            root.headerSplit = pressHeight + (mapToItem(null, mouse.x, mouse.y).y - pressScreenY)
+          }
+          onDoubleClicked: root.headerSplit = -1
+
+          Rectangle {
+            anchors.centerIn: parent
+            width: Style.space(46)
+            height: 2
+            radius: 1
+            color: splitGrip.containsMouse || splitGrip.pressed
+              ? root.foreground
+              : root.mixColor(Color.background, root.foreground, 0.28)
+          }
         }
 
         DecisionChat {
