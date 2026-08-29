@@ -276,6 +276,37 @@ Item {
     return -1
   }
 
+  // Keyboard scrolling for the transcript, same shape as Ask's conversation so
+  // the two panes answer to the same keys: arrows and Ctrl+hjkl by line,
+  // PageUp/PageDown and Ctrl+u/d by page.
+  //
+  // requireModifier is set by the composer: while typing, bare arrows have to
+  // keep moving the caret, so only the Ctrl and Page forms scroll there.
+  function scrollBy(dx, dy) {
+    var maxY = Math.max(0, log.contentHeight - log.height)
+    log.contentY = Math.max(0, Math.min(maxY, log.contentY + dy))
+    var maxX = Math.max(0, log.contentWidth - log.width)
+    log.contentX = Math.max(0, Math.min(maxX, log.contentX + dx))
+  }
+  function handleScrollKey(event, requireModifier) {
+    var ctrl = (event.modifiers & Qt.ControlModifier) !== 0
+    var line = Style.space(60)
+    var page = Math.max(line, log.height * 0.85)
+    if (ctrl && event.key === Qt.Key_K) { scrollBy(0, -line); return true }
+    if (ctrl && event.key === Qt.Key_J) { scrollBy(0, line); return true }
+    if (ctrl && event.key === Qt.Key_H) { scrollBy(-line, 0); return true }
+    if (ctrl && event.key === Qt.Key_L) { scrollBy(line, 0); return true }
+    if (ctrl && event.key === Qt.Key_U) { scrollBy(0, -page); return true }
+    if (ctrl && event.key === Qt.Key_D) { scrollBy(0, page); return true }
+    if (event.key === Qt.Key_PageUp) { scrollBy(0, -page); return true }
+    if (event.key === Qt.Key_PageDown) { scrollBy(0, page); return true }
+    if (requireModifier) return false
+    if (event.key === Qt.Key_Up) { scrollBy(0, -line); return true }
+    if (event.key === Qt.Key_Down) { scrollBy(0, line); return true }
+    if (event.key === Qt.Key_Left) { scrollBy(-line, 0); return true }
+    if (event.key === Qt.Key_Right) { scrollBy(line, 0); return true }
+    return false
+  }
   function scrollToEnd() { log.contentY = Math.max(0, log.contentHeight - log.height) }
 
   function answerPermission(allow) {
@@ -382,7 +413,7 @@ Item {
               textFormat: human ? TextEdit.PlainText : TextEdit.MarkdownText
               readOnly: true
               selectByMouse: true
-              Keys.onPressed: function(event) { if (root.handleFontKey(event)) event.accepted = true }
+              Keys.onPressed: function(event) { if (root.handleFontKey(event) || root.handleScrollKey(event, false)) event.accepted = true }
               onLinkActivated: function(link) { Qt.openUrlExternally(link) }
             }
           }
@@ -541,7 +572,7 @@ Item {
         enabled: !root.waiting && !root.sessionLost
         background: null
         Keys.onPressed: function(event) {
-          if (root.handleFontKey(event)) { event.accepted = true; return }
+          if (root.handleFontKey(event) || root.handleScrollKey(event, true)) { event.accepted = true; return }
           if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
               && !(event.modifiers & Qt.ShiftModifier)) {
             root.send(input.text)

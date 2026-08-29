@@ -34,6 +34,21 @@ Item {
         fontResetRequested(); event.accepted = true; return
       }
     }
+    // Ctrl+hjkl mirrors the bare keys, so the same fingering works whether or
+    // not a text field has focus. Matched on key rather than text: with Ctrl
+    // held, event.text is a control character, not the letter.
+    if (event.modifiers & Qt.ControlModifier) {
+      if (event.key === Qt.Key_J) { moveRequested(0, 1); event.accepted = true; return }
+      if (event.key === Qt.Key_K) { moveRequested(0, -1); event.accepted = true; return }
+      if (event.key === Qt.Key_L) { moveRequested(1, 0); event.accepted = true; return }
+      if (event.key === Qt.Key_H) { moveRequested(-1, 0); event.accepted = true; return }
+    }
+    if (event.key === Qt.Key_PageUp) {
+      pageRequested(-1); event.accepted = true; return
+    }
+    if (event.key === Qt.Key_PageDown) {
+      pageRequested(1); event.accepted = true; return
+    }
     if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_U) {
       pageRequested(-1); event.accepted = true; return
     }

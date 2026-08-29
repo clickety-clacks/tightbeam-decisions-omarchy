@@ -210,11 +210,6 @@ Panel {
     requestList.currentIndex = Math.max(0, Math.min(requests.length - 1, requestList.currentIndex + direction * step))
     requestList.positionViewAtIndex(requestList.currentIndex, ListView.Contain)
   }
-  function scrollDetail(amount) {
-    var flick = detailScroll.contentItem
-    if (!flick) return
-    flick.contentY = Math.max(0, Math.min(Math.max(0, flick.contentHeight - flick.height), flick.contentY + amount))
-  }
 
   visible: true
   implicitWidth: button.implicitWidth
@@ -473,7 +468,7 @@ Panel {
           event.accepted = true
           return
         }
-        if (root.handleFontKey(event)) event.accepted = true
+        if (root.handleFontKey(event) || chat.handleScrollKey(event, false)) event.accepted = true
       }
 
       Item {
