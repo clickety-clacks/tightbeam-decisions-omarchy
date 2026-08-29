@@ -29,6 +29,12 @@ Item {
   property string host: ""
   property string user: ""
   property string messageScript: ""
+  // Driven by the panel so the window and the dropdown always match.
+  property real fontScale: 1
+  readonly property int captionSize: Math.round(Style.font.caption * fontScale)
+  readonly property int bodySize: Math.round(Style.font.body * fontScale)
+  readonly property int titleSize: Math.round(Style.font.title * fontScale)
+  readonly property int displaySize: Math.round(Style.font.display * fontScale)
   readonly property string hostLabel: host === "" ? "this machine" : "the " + host + " gateway"
   readonly property string quotedHost: host === "" ? "\"\"" : host
   readonly property string quotedUser: user === "" ? "\"\"" : user
@@ -55,6 +61,19 @@ Item {
   }
 
   signal ruleRequested(int choiceNumber)
+  // The panel owns the scale; the chat only asks for a change. Routed as
+  // signals because a focused TextEdit or TextArea claims Ctrl +/- before any
+  // window-level handler sees it.
+  signal fontStepRequested(real step)
+  signal fontResetRequested()
+
+  function handleFontKey(event) {
+    if ((event.modifiers & Qt.ControlModifier) === 0) return false
+    if (event.key === Qt.Key_Plus || event.key === Qt.Key_Equal) { fontStepRequested(0.1); return true }
+    if (event.key === Qt.Key_Minus || event.key === Qt.Key_Underscore) { fontStepRequested(-0.1); return true }
+    if (event.key === Qt.Key_0) { fontResetRequested(); return true }
+    return false
+  }
 
   property bool bridgeReady: false
   property bool waiting: false
@@ -335,12 +354,13 @@ Item {
               text: body
               color: human ? root.accent : root.foreground
               font.family: Style.font.family
-              font.pixelSize: Style.font.body
+              font.pixelSize: root.bodySize
               font.italic: human
               wrapMode: TextEdit.Wrap
               textFormat: human ? TextEdit.PlainText : TextEdit.MarkdownText
               readOnly: true
               selectByMouse: true
+              Keys.onPressed: function(event) { if (root.handleFontKey(event)) event.accepted = true }
               onLinkActivated: function(link) { Qt.openUrlExternally(link) }
             }
           }
@@ -352,7 +372,7 @@ Item {
           text: root.statusText
           color: root.muted
           font.family: Style.font.family
-          font.pixelSize: Style.font.caption
+          font.pixelSize: root.captionSize
           wrapMode: Text.WordWrap
         }
       }
@@ -380,7 +400,7 @@ Item {
           text: "Allow: " + root.pendingPermissionTitle
           color: root.foreground
           font.family: Style.font.family
-          font.pixelSize: Style.font.caption
+          font.pixelSize: root.captionSize
         }
         MouseArea {
           anchors.fill: parent
@@ -401,7 +421,7 @@ Item {
           text: "Deny"
           color: root.muted
           font.family: Style.font.family
-          font.pixelSize: Style.font.caption
+          font.pixelSize: root.captionSize
         }
         MouseArea {
           anchors.fill: parent
@@ -429,7 +449,7 @@ Item {
           }
           color: ruleMouse.containsMouse ? Color.background : root.foreground
           font.family: Style.font.family
-          font.pixelSize: Style.font.body
+          font.pixelSize: root.bodySize
           font.bold: true
         }
         MouseArea {
@@ -463,7 +483,7 @@ Item {
             text: modelData
             color: rules && chipMouse.containsMouse ? Color.background : root.foreground
             font.family: Style.font.family
-            font.pixelSize: rules ? Style.font.body : Style.font.caption
+            font.pixelSize: rules ? root.bodySize : root.captionSize
             font.bold: rules
           }
           MouseArea {
@@ -492,13 +512,14 @@ Item {
         anchors.margins: Style.space(10)
         color: root.foreground
         font.family: Style.font.family
-        font.pixelSize: Style.font.body
+        font.pixelSize: root.bodySize
         placeholderText: root.waiting ? "" : "Ask about this decision…"
         placeholderTextColor: root.muted
         wrapMode: TextEdit.Wrap
         enabled: !root.waiting && !root.sessionLost
         background: null
         Keys.onPressed: function(event) {
+          if (root.handleFontKey(event)) { event.accepted = true; return }
           if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
               && !(event.modifiers & Qt.ShiftModifier)) {
             root.send(input.text)

@@ -22,6 +22,16 @@ Panel {
   property var kinds: []
   // kind -> bool. A kind absent from this map uses the default below.
   property var enabledKinds: ({})
+  // Text size for the dropdown and the detail window alike, so one Ctrl +/-
+  // anywhere resizes both and the two surfaces cannot drift apart.
+  readonly property real minFontScale: 0.7
+  readonly property real maxFontScale: 2
+  property real fontScale: 1
+  // Rounded once here rather than at every use site.
+  readonly property int captionSize: Math.round(Style.font.caption * fontScale)
+  readonly property int bodySize: Math.round(Style.font.body * fontScale)
+  readonly property int titleSize: Math.round(Style.font.title * fontScale)
+  readonly property int displaySize: Math.round(Style.font.display * fontScale)
   property bool kindsLoaded: false
   // Blank host means this machine is itself an assimilated Tightbeam node and
   // the CLI runs locally; anything else is an ssh destination. The scripts
@@ -59,6 +69,22 @@ Panel {
     var value = enabledKinds ? enabledKinds[kind] : undefined
     return value === undefined || value === null ? kind !== "effort" : !!value
   }
+  // Shared so the window, and any TextEdit that has claimed focus inside it,
+  // resize through the same path. Returns true when the key was consumed.
+  function handleFontKey(event) {
+    if ((event.modifiers & Qt.ControlModifier) === 0) return false
+    if (event.key === Qt.Key_Plus || event.key === Qt.Key_Equal) { adjustFontScale(0.1); return true }
+    if (event.key === Qt.Key_Minus || event.key === Qt.Key_Underscore) { adjustFontScale(-0.1); return true }
+    if (event.key === Qt.Key_0) { setFontScale(1); return true }
+    return false
+  }
+  function setFontScale(value) {
+    var next = Math.max(minFontScale, Math.min(maxFontScale, Math.round(value * 100) / 100))
+    if (next === fontScale) return
+    fontScale = next
+    if (kindsLoaded) kindSaveTimer.restart()
+  }
+  function adjustFontScale(step) { setFontScale(fontScale + step) }
   function toggleKind(kind) {
     var next = {}
     for (var key in enabledKinds) next[key] = enabledKinds[key]
@@ -94,12 +120,19 @@ Panel {
     try { data = JSON.parse(raw || "{}") } catch (error) { data = {} }
     if (!data || typeof data !== "object") data = {}
     enabledKinds = (data.enabledKinds && typeof data.enabledKinds === "object") ? data.enabledKinds : {}
+    var scale = Number(data.fontScale)
+    fontScale = (isFinite(scale) && scale > 0)
+      ? Math.max(minFontScale, Math.min(maxFontScale, scale))
+      : 1
     kindsLoaded = true
     applyFilter()
   }
   function flushKindSettings() {
     if (!kindsLoaded) return
-    kindSettingsFile.setText(JSON.stringify({ enabledKinds: enabledKinds }, null, 2) + "\n")
+    kindSettingsFile.setText(JSON.stringify({
+      enabledKinds: enabledKinds,
+      fontScale: fontScale
+    }, null, 2) + "\n")
   }
   function applyPayload(text) {
     try {
@@ -278,6 +311,8 @@ Panel {
       onActivateRequested: root.openRequest(requestList.currentIndex)
       onCloseRequested: root.close()
       onTabRequested: function(direction) { root.switchPanel(direction) }
+      onFontStepRequested: function(step) { root.adjustFontScale(step) }
+      onFontResetRequested: root.setFontScale(1)
 
       Column {
         id: listColumn
@@ -289,7 +324,7 @@ Panel {
           meta: "Tightbeam · " + root.hostName + (root.refreshing ? " · refreshing…" : "")
           foreground: root.foreground
           fontFamily: root.fontFamily
-          iconComponent: Component { Text { text: "󰄬"; color: root.foreground; font.family: root.fontFamily; font.pixelSize: Style.font.display } }
+          iconComponent: Component { Text { text: "󰄬"; color: root.foreground; font.family: root.fontFamily; font.pixelSize: root.displaySize } }
           trailingControl: Component {
             Button {
               iconText: "󰑐"
@@ -351,7 +386,7 @@ Panel {
               anchors.fill: parent; anchors.margins: Style.space(9)
               text: (modelData.isNew ? "●  " : "") + modelData.question
               color: modelData.isNew ? root.urgent : root.foreground
-              font.family: root.fontFamily; font.pixelSize: Style.font.caption
+              font.family: root.fontFamily; font.pixelSize: root.captionSize
               elide: Text.ElideRight
             }
             MouseArea {
@@ -369,9 +404,9 @@ Panel {
           text: root.allRequests.length > 0
             ? "No requests in the kinds you have switched on."
             : "No open decision requests."
-          color: root.dim; font.family: root.fontFamily; font.pixelSize: Style.font.body
+          color: root.dim; font.family: root.fontFamily; font.pixelSize: root.bodySize
         }
-        Text { visible: root.statusText !== ""; width: parent.width; text: root.statusText; color: root.statusText.indexOf("Recorded:") === 0 ? root.foreground : root.urgent; font.family: root.fontFamily; font.pixelSize: Style.font.caption; wrapMode: Text.WordWrap }
+        Text { visible: root.statusText !== ""; width: parent.width; text: root.statusText; color: root.statusText.indexOf("Recorded:") === 0 ? root.foreground : root.urgent; font.family: root.fontFamily; font.pixelSize: root.captionSize; wrapMode: Text.WordWrap }
       }
     }
   }
@@ -405,7 +440,9 @@ Panel {
         if (event.key === Qt.Key_Escape) {
           detailWindow.visible = false
           event.accepted = true
+          return
         }
+        if (root.handleFontKey(event)) event.accepted = true
       }
 
       Item {
@@ -423,7 +460,7 @@ Panel {
             text: "DECISION REQUEST"
             color: root.urgent
             font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
+            font.pixelSize: root.captionSize
             font.bold: true
             font.letterSpacing: 1.5
           }
@@ -432,7 +469,7 @@ Panel {
             text: root.detailRequest ? root.detailRequest.question : ""
             color: Color.foreground
             font.family: root.fontFamily
-            font.pixelSize: Style.font.title
+            font.pixelSize: root.titleSize
             font.bold: true
             lineHeight: 1.2
             wrapMode: Text.WordWrap
@@ -446,7 +483,7 @@ Panel {
               : ""
             color: Color.muted
             font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
+            font.pixelSize: root.captionSize
             elide: Text.ElideRight
           }
           Text {
@@ -455,7 +492,7 @@ Panel {
             text: root.detailRequest ? root.detailRequest.note : ""
             color: Color.muted
             font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
+            font.pixelSize: root.captionSize
             wrapMode: Text.WordWrap
             maximumLineCount: 3
             elide: Text.ElideRight
@@ -481,8 +518,11 @@ Panel {
           anchors.bottom: parent.bottom
           host: root.tbHost
           user: root.tbAsUser
+          fontScale: root.fontScale
           messageScript: root.script("message.sh")
           onRuleRequested: function(choiceNumber) { root.submitChoice(choiceNumber) }
+          onFontStepRequested: function(step) { root.adjustFontScale(step) }
+          onFontResetRequested: root.setFontScale(1)
         }
       }
     }

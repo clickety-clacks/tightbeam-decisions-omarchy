@@ -13,12 +13,27 @@ Item {
   signal deleteRequested()
   signal tabRequested(int direction)
   signal textKey(string text)
+  // Ctrl +/-/0. Emitted from here rather than bound as window Shortcuts
+  // because a focused TextEdit claims these keys before a shortcut sees them.
+  signal fontStepRequested(real step)
+  signal fontResetRequested()
 
   focus: true
   Keys.priority: Keys.BeforeItem
   Keys.onPressed: function(event) {
     if (blocked) return
 
+    if (event.modifiers & Qt.ControlModifier) {
+      if (event.key === Qt.Key_Plus || event.key === Qt.Key_Equal) {
+        fontStepRequested(0.1); event.accepted = true; return
+      }
+      if (event.key === Qt.Key_Minus || event.key === Qt.Key_Underscore) {
+        fontStepRequested(-0.1); event.accepted = true; return
+      }
+      if (event.key === Qt.Key_0) {
+        fontResetRequested(); event.accepted = true; return
+      }
+    }
     if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_U) {
       pageRequested(-1); event.accepted = true; return
     }
