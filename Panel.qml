@@ -92,9 +92,6 @@ Panel {
     if (event.key === Qt.Key_0) { setFontScale(1); return true }
     return false
   }
-  // TextEdit has no maximumLineCount or elide, so the old line caps become
-  // height caps with clipping. 1.45 approximates a wrapped line's box.
-  function textCap(pixelSize, lines) { return Math.ceil(pixelSize * 1.45 * lines) }
   // Selectable header fields take activeFocus when clicked, which would
   // otherwise swallow the window's keys, so they route through here.
   function handleHeaderKey(event) {
@@ -487,11 +484,24 @@ Panel {
         anchors.fill: parent
         anchors.margins: Style.space(24)
 
-        Column {
-          id: detailHeader
+        // Capping each field and clipping meant a long question simply vanished
+        // below the fold with no way to reach it. The fields size to their
+        // content now and the header as a whole scrolls, bounded so it cannot
+        // crowd out the conversation beneath it.
+        Flickable {
+          id: detailHeaderScroll
           anchors.top: parent.top
           anchors.left: parent.left
           anchors.right: parent.right
+          height: Math.min(detailHeader.implicitHeight,
+                           Math.round(detailWindow.height * 0.45))
+          contentHeight: detailHeader.implicitHeight
+          clip: true
+          boundsBehavior: Flickable.StopAtBounds
+
+        Column {
+          id: detailHeader
+          width: detailHeaderScroll.width
           spacing: Style.space(6)
 
           TextEdit {
@@ -503,7 +513,6 @@ Panel {
             font.pixelSize: root.captionSize
             font.bold: true
             wrapMode: TextEdit.Wrap
-            height: Math.min(implicitHeight, root.textCap(root.captionSize, 2))
             readOnly: true
             selectByMouse: true
             clip: true
@@ -526,7 +535,6 @@ Panel {
             font.pixelSize: root.titleSize
             font.bold: true
             wrapMode: TextEdit.Wrap
-            height: Math.min(implicitHeight, root.textCap(root.titleSize, 3))
             readOnly: true
             selectByMouse: true
             clip: true
@@ -561,13 +569,13 @@ Panel {
             font.pixelSize: root.captionSize
             wrapMode: TextEdit.Wrap
             topPadding: Style.space(4)
-            height: Math.min(implicitHeight, root.textCap(root.captionSize, 3) + Style.space(4))
             readOnly: true
             selectByMouse: true
             clip: true
             activeFocusOnPress: true
             Keys.onPressed: function(event) { if (root.handleHeaderKey(event)) event.accepted = true }
           }
+        }
         }
 
         // The fixed header reads as its own surface rather than as content
@@ -581,7 +589,7 @@ Panel {
           anchors.topMargin: -Style.space(24)
           anchors.leftMargin: -Style.space(24)
           anchors.rightMargin: -Style.space(24)
-          height: detailHeader.implicitHeight + Style.space(24) + Style.space(16)
+          height: detailHeaderScroll.height + Style.space(24) + Style.space(16)
           color: root.mixColor(Color.background, root.foreground, 0.07)
           z: -1
         }
