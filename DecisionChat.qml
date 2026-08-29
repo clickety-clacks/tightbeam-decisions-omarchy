@@ -89,7 +89,21 @@ Item {
 
   readonly property color foreground: Color.foreground
   readonly property color accent: Color.accent
-  readonly property color muted: Color.muted
+  // Secondary text is derived from the theme's own surface and foreground
+  // instead of read from the shell's muted role. Omarchy falls back to color8
+  // when a theme omits `muted`, and color8 is terminal "bright black" -- a dim
+  // value that assumes a dark background. Under a light theme it lands next to
+  // the surface: 1.4:1 here, which is unreadable. Mixing the surface toward the
+  // foreground is correct in both directions -- about 3.8:1 on a light theme
+  // and 8.6:1 on a dark one -- and stays clearly weaker than full foreground.
+  function mixColor(from, to, amount) {
+    return Qt.rgba(from.r + (to.r - from.r) * amount,
+                   from.g + (to.g - from.g) * amount,
+                   from.b + (to.b - from.b) * amount,
+                   1)
+  }
+  readonly property color surface: Color.background
+  readonly property color muted: mixColor(surface, foreground, 0.85)
 
   function briefing() {
     var options = request && request.options ? request.options : []
@@ -103,6 +117,14 @@ Item {
       "they produced. It runs on " + hostLabel + ". When an agent hits a question",
       "only its human owner can settle, it files an operator decision request — this",
       "one. Recording a ruling wakes the agent that asked and it proceeds.",
+      "",
+      "WHAT THIS REQUEST BELONGS TO: " + (request && request.subject ? request.subject : "unstated"),
+      (request && request.workItemId
+        ? "Its work item is " + request.workItemId + ". Read that item first -- it is the"
+        : "No work item is linked. Establish from the assignment what work this serves"),
+      (request && request.workItemId
+        ? "fastest way to learn which project this is and why the question exists."
+        : "before answering, and say so if you cannot."),
       "",
       "WHO YOU ARE TALKING TO: Mike owns this org but does NOT have the context these",
       "requests assume. They are written by agents deep in a task, in that task's",

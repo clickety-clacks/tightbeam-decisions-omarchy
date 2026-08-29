@@ -13,7 +13,21 @@ Panel {
 
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property color urgent: bar ? bar.urgent : Color.urgent
-  readonly property color dim: Qt.darker(foreground, 1.55)
+  // Secondary text is derived from the theme's own surface and foreground
+  // instead of read from the shell's muted role. Omarchy falls back to color8
+  // when a theme omits `muted`, and color8 is terminal "bright black" -- a dim
+  // value that assumes a dark background. Under a light theme it lands next to
+  // the surface: 1.4:1 here, which is unreadable. Mixing the surface toward the
+  // foreground is correct in both directions -- about 3.8:1 on a light theme
+  // and 8.6:1 on a dark one -- and stays clearly weaker than full foreground.
+  function mixColor(from, to, amount) {
+    return Qt.rgba(from.r + (to.r - from.r) * amount,
+                   from.g + (to.g - from.g) * amount,
+                   from.b + (to.b - from.b) * amount,
+                   1)
+  }
+  readonly property color surface: Color.menu.background
+  readonly property color dim: mixColor(surface, foreground, 0.85)
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   // allRequests is the raw fetch; `requests` is the filtered view the panel
   // renders. Filtering lives here rather than in fetch.sh so a kind that is
@@ -378,16 +392,33 @@ Panel {
             required property var modelData
             required property int index
             width: requestList.width
-            height: rowText.implicitHeight + Style.space(18)
+            height: rowColumn.implicitHeight + Style.space(18)
             radius: Style.cornerRadius
             color: ListView.isCurrentItem ? Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.14) : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.05)
-            Text {
-              id: rowText
-              anchors.fill: parent; anchors.margins: Style.space(9)
-              text: (modelData.isNew ? "●  " : "") + modelData.question
-              color: modelData.isNew ? root.urgent : root.foreground
-              font.family: root.fontFamily; font.pixelSize: root.captionSize
-              elide: Text.ElideRight
+            Column {
+              id: rowColumn
+              anchors.left: parent.left; anchors.right: parent.right
+              anchors.verticalCenter: parent.verticalCenter
+              anchors.margins: Style.space(9)
+              spacing: Style.space(2)
+              // A request names no project, so the work it came from is the
+              // only thing that says what this is about. It leads the row.
+              Text {
+                width: parent.width
+                visible: String(modelData.subject || "") !== ""
+                text: modelData.subject
+                color: root.dim
+                font.family: root.fontFamily; font.pixelSize: root.captionSize
+                elide: Text.ElideRight
+              }
+              Text {
+                id: rowText
+                width: parent.width
+                text: (modelData.isNew ? "●  " : "") + modelData.question
+                color: modelData.isNew ? root.urgent : root.foreground
+                font.family: root.fontFamily; font.pixelSize: root.captionSize
+                elide: Text.ElideRight
+              }
             }
             MouseArea {
               anchors.fill: parent
@@ -457,6 +488,18 @@ Panel {
           spacing: Style.space(6)
 
           Text {
+            width: detailHeader.width
+            visible: root.detailRequest && String(root.detailRequest.subject || "") !== ""
+            text: root.detailRequest ? root.detailRequest.subject : ""
+            color: root.foreground
+            font.family: root.fontFamily
+            font.pixelSize: root.captionSize
+            font.bold: true
+            wrapMode: Text.WordWrap
+            maximumLineCount: 2
+            elide: Text.ElideRight
+          }
+          Text {
             text: "DECISION REQUEST"
             color: root.urgent
             font.family: root.fontFamily
@@ -479,9 +522,11 @@ Panel {
           Text {
             width: detailHeader.width
             text: root.detailRequest
-              ? root.detailRequest.id + (root.detailRequest.assignmentId ? "  ·  " + root.detailRequest.assignmentId : "")
+              ? root.detailRequest.id
+                + (root.detailRequest.assignmentId ? "  ·  " + root.detailRequest.assignmentId : "")
+                + (root.detailRequest.workItemId ? "  ·  " + root.detailRequest.workItemId : "")
               : ""
-            color: Color.muted
+            color: root.dim
             font.family: root.fontFamily
             font.pixelSize: root.captionSize
             elide: Text.ElideRight
@@ -490,7 +535,7 @@ Panel {
             width: detailHeader.width
             visible: root.detailRequest && root.detailRequest.note !== ""
             text: root.detailRequest ? root.detailRequest.note : ""
-            color: Color.muted
+            color: root.dim
             font.family: root.fontFamily
             font.pixelSize: root.captionSize
             wrapMode: Text.WordWrap
