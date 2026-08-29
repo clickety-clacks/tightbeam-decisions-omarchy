@@ -106,8 +106,12 @@ Panel {
   }
   // Selectable header fields take activeFocus when clicked, which would
   // otherwise swallow the window's keys, so they route through here.
+  //
+  // Escape is deliberately not handled: the detail window is a real toplevel,
+  // so it closes the way every other window does, through the window manager.
+  // Swallowing Escape made it behave like a popup and took the key away from
+  // anything inside that might want it.
   function handleHeaderKey(event) {
-    if (event.key === Qt.Key_Escape) { detailWindow.visible = false; return true }
     return handleFontKey(event) || chat.handleScrollKey(event, false)
   }
   function setFontScale(value) {
@@ -485,11 +489,6 @@ Panel {
       focus: true
 
       Keys.onPressed: function(event) {
-        if (event.key === Qt.Key_Escape) {
-          detailWindow.visible = false
-          event.accepted = true
-          return
-        }
         if (root.handleFontKey(event) || chat.handleScrollKey(event, false)) event.accepted = true
       }
 
