@@ -554,15 +554,25 @@ Item {
     Rectangle {
       id: composer
       width: parent.width
-      height: Style.space(46)
+      // Follows both the text scale and the wrapped content. A fixed box
+      // clipped its own text as soon as the font grew, and clipped multi-line
+      // input at any size. input.implicitHeight is content-derived, so it does
+      // not depend on this height and cannot form a loop.
+      height: Math.max(Math.round(Style.space(46) * root.fontScale),
+                       input.implicitHeight + Style.space(20))
       radius: Style.cornerRadius
       color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.08)
       border.color: input.activeFocus ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.22)
 
       TextArea {
         id: input
-        anchors.fill: parent
-        anchors.margins: Style.space(10)
+        // Width-anchored rather than filled, so the height stays implicit and
+        // the box above can size itself from it.
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.leftMargin: Style.space(10)
+        anchors.rightMargin: Style.space(10)
+        anchors.verticalCenter: parent.verticalCenter
         color: root.foreground
         font.family: Style.font.family
         font.pixelSize: root.bodySize

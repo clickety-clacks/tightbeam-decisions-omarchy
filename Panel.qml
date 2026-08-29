@@ -543,18 +543,25 @@ Panel {
           }
         }
 
-        PanelSeparator {
-          id: detailRule
-          anchors.top: detailHeader.bottom
-          anchors.topMargin: Style.space(14)
+        // The fixed header reads as its own surface rather than as content
+        // above a line. Negative margins cancel the content inset so the band
+        // meets the window edges; z keeps it behind the header text.
+        Rectangle {
+          id: detailHeaderBand
+          anchors.top: parent.top
           anchors.left: parent.left
           anchors.right: parent.right
-          foreground: Color.foreground
+          anchors.topMargin: -Style.space(24)
+          anchors.leftMargin: -Style.space(24)
+          anchors.rightMargin: -Style.space(24)
+          height: detailHeader.implicitHeight + Style.space(24) + Style.space(16)
+          color: root.mixColor(Color.background, root.foreground, 0.07)
+          z: -1
         }
 
         DecisionChat {
           id: chat
-          anchors.top: detailRule.bottom
+          anchors.top: detailHeaderBand.bottom
           anchors.topMargin: Style.space(14)
           anchors.left: parent.left
           anchors.right: parent.right
