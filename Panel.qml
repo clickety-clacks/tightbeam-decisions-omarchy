@@ -302,8 +302,11 @@ Panel {
     bar: root.bar
     open: root.opened
     focusTarget: listKeys
-    contentWidth: panel.fittedContentWidth(Style.space(500))
-    contentHeight: panel.fittedContentHeight(listColumn.implicitHeight, Style.space(620))
+    // Scale the box with the text. At 2x a fixed width just elides harder,
+    // which is the opposite of what asking for bigger text means. fitted*
+    // still clamps to what the screen can actually show.
+    contentWidth: panel.fittedContentWidth(Math.round(Style.space(500) * root.fontScale))
+    contentHeight: panel.fittedContentHeight(listColumn.implicitHeight, Math.round(Style.space(620) * root.fontScale))
 
     VimPanelKeyCatcher {
       id: listKeys
@@ -378,7 +381,7 @@ Panel {
         ListView {
           id: requestList
           width: parent.width
-          height: Math.min(contentHeight, Style.space(500))
+          height: Math.min(contentHeight, Math.round(Style.space(500) * root.fontScale))
           model: root.requests
           spacing: Style.space(6)
           clip: true
@@ -446,8 +449,8 @@ Panel {
     visible: false
     title: root.detailRequest ? "Decision request — " + root.detailRequest.id : "Decision request"
     color: Color.background
-    implicitWidth: 820
-    implicitHeight: 760
+    implicitWidth: Math.round(820 * root.fontScale)
+    implicitHeight: Math.round(760 * root.fontScale)
     minimumSize: Qt.size(560, 480)
     onVisibleChanged: if (!visible) chat.stop()
     // `visible` is what we asked for; `backingWindowVisible` is what the
