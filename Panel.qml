@@ -92,6 +92,15 @@ Panel {
     if (event.key === Qt.Key_0) { setFontScale(1); return true }
     return false
   }
+  // TextEdit has no maximumLineCount or elide, so the old line caps become
+  // height caps with clipping. 1.45 approximates a wrapped line's box.
+  function textCap(pixelSize, lines) { return Math.ceil(pixelSize * 1.45 * lines) }
+  // Selectable header fields take activeFocus when clicked, which would
+  // otherwise swallow the window's keys, so they route through here.
+  function handleHeaderKey(event) {
+    if (event.key === Qt.Key_Escape) { detailWindow.visible = false; return true }
+    return handleFontKey(event) || chat.handleScrollKey(event, false)
+  }
   function setFontScale(value) {
     var next = Math.max(minFontScale, Math.min(maxFontScale, Math.round(value * 100) / 100))
     if (next === fontScale) return
@@ -485,7 +494,7 @@ Panel {
           anchors.right: parent.right
           spacing: Style.space(6)
 
-          Text {
+          TextEdit {
             width: detailHeader.width
             visible: root.detailRequest && String(root.detailRequest.subject || "") !== ""
             text: root.detailRequest ? root.detailRequest.subject : ""
@@ -493,9 +502,13 @@ Panel {
             font.family: root.fontFamily
             font.pixelSize: root.captionSize
             font.bold: true
-            wrapMode: Text.WordWrap
-            maximumLineCount: 2
-            elide: Text.ElideRight
+            wrapMode: TextEdit.Wrap
+            height: Math.min(implicitHeight, root.textCap(root.captionSize, 2))
+            readOnly: true
+            selectByMouse: true
+            clip: true
+            activeFocusOnPress: true
+            Keys.onPressed: function(event) { if (root.handleHeaderKey(event)) event.accepted = true }
           }
           Text {
             text: "DECISION REQUEST"
@@ -505,19 +518,24 @@ Panel {
             font.bold: true
             font.letterSpacing: 1.5
           }
-          Text {
+          TextEdit {
             width: detailHeader.width
             text: root.detailRequest ? root.detailRequest.question : ""
             color: Color.foreground
             font.family: root.fontFamily
             font.pixelSize: root.titleSize
             font.bold: true
-            lineHeight: 1.2
-            wrapMode: Text.WordWrap
-            maximumLineCount: 3
-            elide: Text.ElideRight
+            wrapMode: TextEdit.Wrap
+            height: Math.min(implicitHeight, root.textCap(root.titleSize, 3))
+            readOnly: true
+            selectByMouse: true
+            clip: true
+            activeFocusOnPress: true
+            Keys.onPressed: function(event) { if (root.handleHeaderKey(event)) event.accepted = true }
           }
-          Text {
+          // The ids are the whole reason to want selection here, so they wrap
+          // rather than elide -- a truncated id is useless to copy.
+          TextEdit {
             width: detailHeader.width
             text: root.detailRequest
               ? root.detailRequest.id
@@ -527,19 +545,28 @@ Panel {
             color: root.dim
             font.family: root.fontFamily
             font.pixelSize: root.captionSize
-            elide: Text.ElideRight
+            wrapMode: TextEdit.Wrap
+            readOnly: true
+            selectByMouse: true
+            clip: true
+            activeFocusOnPress: true
+            Keys.onPressed: function(event) { if (root.handleHeaderKey(event)) event.accepted = true }
           }
-          Text {
+          TextEdit {
             width: detailHeader.width
             visible: root.detailRequest && root.detailRequest.note !== ""
             text: root.detailRequest ? root.detailRequest.note : ""
             color: root.dim
             font.family: root.fontFamily
             font.pixelSize: root.captionSize
-            wrapMode: Text.WordWrap
-            maximumLineCount: 3
-            elide: Text.ElideRight
+            wrapMode: TextEdit.Wrap
             topPadding: Style.space(4)
+            height: Math.min(implicitHeight, root.textCap(root.captionSize, 3) + Style.space(4))
+            readOnly: true
+            selectByMouse: true
+            clip: true
+            activeFocusOnPress: true
+            Keys.onPressed: function(event) { if (root.handleHeaderKey(event)) event.accepted = true }
           }
         }
 
