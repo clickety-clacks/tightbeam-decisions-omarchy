@@ -82,6 +82,26 @@ Shell plugin reloads and Hyprland configuration reloads. The host starts with
 the widget and is recovered automatically when a menu item or notification is
 opened.
 
+## Agent skill
+
+Installing agents should also expose the bundled `show-decision-request` skill
+to both Codex and Claude. It lets any agent with a decision-request ID open the
+standalone window directly, without going through the bar menu.
+
+From the installed plugin directory, create the two skill links:
+
+```sh
+plugin_dir="$HOME/.config/omarchy/plugins/mike.tightbeam-decisions"
+mkdir -p "$HOME/.codex/skills" "$HOME/.claude/skills"
+ln -sfn "$plugin_dir/skills/show-decision-request" "$HOME/.codex/skills/show-decision-request"
+ln -sfn "$plugin_dir/skills/show-decision-request" "$HOME/.claude/skills/show-decision-request"
+```
+
+If either destination is an actual directory rather than a symbolic link,
+preserve it and reconcile its contents instead of deleting it. New agent
+sessions will discover the skill automatically. The skill is intentionally
+machine-specific: it opens the local plugin configured for Gibson as Mike.
+
 ## Files
 
 | File | Role |
@@ -90,6 +110,7 @@ opened.
 | `WindowHost.qml` | Independent process that owns decision windows and polls their status |
 | `decision-window-host.sh` | Starts the window host and forwards open requests over IPC |
 | `DecisionWindow.qml` | Standalone decision detail window |
+| `skills/show-decision-request/SKILL.md` | Shared Codex/Claude skill for opening a request by ID |
 | `DecisionChat.qml` | Explain-and-discuss pane, ruling control |
 | `tightbeam.sh` | Transport resolution; `tb()` runs the CLI locally or over ssh |
 | `fetch.sh` | Open requests plus the kinds present, as JSON |
