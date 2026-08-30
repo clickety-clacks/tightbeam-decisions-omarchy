@@ -73,11 +73,23 @@ Choices persist to `~/.config/omarchy/tightbeam-decisions.json`. `effort` is
 off by default; every other kind, including one introduced after this was
 written, defaults to shown.
 
+## Window lifetime
+
+The bar widget is only the list and launcher. Decision detail windows are
+owned by a separate Quickshell instance (`WindowHost.qml`) reached through
+`decision-window-host.sh`. An open window therefore survives both Omarchy
+Shell plugin reloads and Hyprland configuration reloads. The host starts with
+the widget and is recovered automatically when a menu item or notification is
+opened.
+
 ## Files
 
 | File | Role |
 |---|---|
 | `Panel.qml` | Bar widget, request list, kind toggles |
+| `WindowHost.qml` | Independent process that owns decision windows and polls their status |
+| `decision-window-host.sh` | Starts the window host and forwards open requests over IPC |
+| `DecisionWindow.qml` | Standalone decision detail window |
 | `DecisionChat.qml` | Explain-and-discuss pane, ruling control |
 | `tightbeam.sh` | Transport resolution; `tb()` runs the CLI locally or over ssh |
 | `fetch.sh` | Open requests plus the kinds present, as JSON |

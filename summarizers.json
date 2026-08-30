@@ -1,0 +1,10 @@
+{
+  "main": {
+    "codex": { "model": "luna", "reasoningEffort": "xhigh" },
+    "claude": { "model": "opus" }
+  },
+  "parentNotes": {
+    "codex": { "model": "luna", "reasoningEffort": "xhigh" },
+    "claude": { "model": "opus" }
+  }
+}

@@ -41,6 +41,9 @@ Panel {
   readonly property real minFontScale: 0.7
   readonly property real maxFontScale: 2
   property real fontScale: 1
+  property real keyboardLineImpulse: 335
+  property real keyboardDeceleration: 608
+  readonly property real keyboardPageImpulse: keyboardLineImpulse * (740 / 360)
   // Rounded once here rather than at every use site.
   readonly property int captionSize: Math.round(Style.font.caption * fontScale)
   readonly property int bodySize: Math.round(Style.font.body * fontScale)
@@ -55,32 +58,35 @@ Panel {
   // shell.json keeps working. Blank means the account the CLI runs as.
   readonly property string tbAsUser: String(setting("asUser", setting("user", "")))
   readonly property string hostName: tbHost === "" ? "this machine" : tbHost
-  // Height of the header pane in the detail window. -1 means "decide for me":
-  // fit the content, but never let it take more than 45% of the window. A drag
-  // pins it; double-clicking the grip returns it to auto, and opening another
-  // request does too, since the right default depends on that request's text.
-  property real headerSplit: -1
-  readonly property real headerSplitMin: Style.space(44)
-  readonly property real headerSplitMax: Math.round(detailWindow.height * 0.75)
-  readonly property real headerAutoHeight: Math.min(detailHeader.implicitHeight,
-                                                    Math.round(detailWindow.height * 0.45))
-  readonly property real headerHeight: headerSplit < 0
-    ? headerAutoHeight
-    : Math.max(headerSplitMin, Math.min(headerSplitMax, headerSplit))
   readonly property string kindSettingsPath: Quickshell.env("HOME") + "/.config/omarchy/tightbeam-decisions.json"
   property var requests: []
   property bool hasNew: false
   property bool refreshing: false
+  property bool fetchedOnce: false
   // Set when a fetch fails, so the empty state does not read as "nothing to
   // do" when the truth is "cannot reach Tightbeam" or "not configured yet".
   property bool fetchFailed: false
-  property bool replying: false
   property string statusText: ""
-  property var detailRequest: null
 
   function setting(name, fallback) {
     var value = settings ? settings[name] : undefined
     return value === undefined || value === null ? fallback : value
+  }
+  function poForRequest(request) {
+    var raiser = String(request && request.raiserId ? request.raiserId : "")
+    var slug = ""
+    var poMarker = "agent:product-owner:"
+    if (raiser.indexOf(poMarker) === 0) slug = raiser.substring(poMarker.length)
+    else if (raiser.indexOf("process:") === 0) slug = raiser.substring("process:".length)
+    else {
+      var embeddedPo = raiser.indexOf("product-owner:")
+      if (embeddedPo >= 0) slug = raiser.substring(embeddedPo + "product-owner:".length)
+    }
+    // Harness and relief-role suffixes describe the particular PO session,
+    // not the top-level product organization it owns.
+    slug = slug.replace(/-(codex|claude)(-.*)?$/i, "")
+    if (slug === "") return "UNASSIGNED"
+    return slug.replace(/[-_]+/g, " ").trim().toUpperCase()
   }
   function script(name) { return Qt.resolvedUrl(name).toString().replace("file://", "") }
   function refreshNow() {
@@ -104,16 +110,6 @@ Panel {
     if (event.key === Qt.Key_0) { setFontScale(1); return true }
     return false
   }
-  // Selectable header fields take activeFocus when clicked, which would
-  // otherwise swallow the window's keys, so they route through here.
-  //
-  // Escape is deliberately not handled: the detail window is a real toplevel,
-  // so it closes the way every other window does, through the window manager.
-  // Swallowing Escape made it behave like a popup and took the key away from
-  // anything inside that might want it.
-  function handleHeaderKey(event) {
-    return handleFontKey(event) || chat.handleScrollKey(event, false)
-  }
   function setFontScale(value) {
     var next = Math.max(minFontScale, Math.min(maxFontScale, Math.round(value * 100) / 100))
     if (next === fontScale) return
@@ -121,6 +117,14 @@ Panel {
     if (kindsLoaded) kindSaveTimer.restart()
   }
   function adjustFontScale(step) { setFontScale(fontScale + step) }
+  function setKeyboardMotion(impulse, deceleration) {
+    var nextImpulse = Math.round(Math.max(80, Math.min(2000, impulse)))
+    var nextDeceleration = Math.round(Math.max(100, Math.min(5000, deceleration)))
+    if (nextImpulse === keyboardLineImpulse && nextDeceleration === keyboardDeceleration) return
+    keyboardLineImpulse = nextImpulse
+    keyboardDeceleration = nextDeceleration
+    if (kindsLoaded) kindSaveTimer.restart()
+  }
   function toggleKind(kind) {
     var next = {}
     for (var key in enabledKinds) next[key] = enabledKinds[key]
@@ -141,15 +145,23 @@ Panel {
     for (var index = 0; index < allRequests.length; index++) {
       var request = allRequests[index]
       if (!kindEnabled(request.kind)) continue
-      visible.push(request)
+      // Group by the top-level product owner, not by the assignment subject.
+      // Copy rather than decorate the fetched object in place.
+      var listed = {}
+      for (var key in request) listed[key] = request[key]
+      listed.poSection = poForRequest(request)
+      listed.sourceOrder = index
+      visible.push(listed)
       if (request.isNew) anyNew = true
     }
+    visible.sort(function(left, right) {
+      var byPo = left.poSection.localeCompare(right.poSection, undefined, { sensitivity: "base" })
+      return byPo !== 0 ? byPo : left.sourceOrder - right.sourceOrder
+    })
     requests = visible
     hasNew = anyNew
     if (requests.length > 0 && requestList.currentIndex < 0) requestList.currentIndex = 0
     if (requestList.currentIndex >= requests.length) requestList.currentIndex = Math.max(0, requests.length - 1)
-    if (detailWindow.visible && detailRequest && !hasRequest(detailRequest.id))
-      detailWindow.visible = false
   }
   function loadKindSettings(raw) {
     var data = {}
@@ -160,6 +172,14 @@ Panel {
     fontScale = (isFinite(scale) && scale > 0)
       ? Math.max(minFontScale, Math.min(maxFontScale, scale))
       : 1
+    var impulse = Number(data.keyboardLineImpulse)
+    keyboardLineImpulse = isFinite(impulse)
+      ? Math.round(Math.max(80, Math.min(2000, impulse)))
+      : 335
+    var deceleration = Number(data.keyboardDeceleration)
+    keyboardDeceleration = isFinite(deceleration)
+      ? Math.round(Math.max(100, Math.min(5000, deceleration)))
+      : 608
     kindsLoaded = true
     applyFilter()
   }
@@ -167,14 +187,41 @@ Panel {
     if (!kindsLoaded) return
     kindSettingsFile.setText(JSON.stringify({
       enabledKinds: enabledKinds,
-      fontScale: fontScale
+      fontScale: fontScale,
+      keyboardLineImpulse: keyboardLineImpulse,
+      keyboardDeceleration: keyboardDeceleration
     }, null, 2) + "\n")
+  }
+  function notifyNewRequests(added) {
+    if (!added || added.length === 0) return
+    for (var index = 0; index < added.length; index++) {
+      var question = String(added[index].question || "Decision requested").replace(/\s+/g, " ").trim()
+      if (question.length > 150) question = question.substring(0, 147) + "…"
+      Quickshell.execDetached([
+        "omarchy", "notification", "send",
+        "--app-name", "Tightbeam Decisions",
+        "-g", "󰗑", "-u", "normal",
+        "New " + poForRequest(added[index]) + " decision request", question,
+        "--exec", script("decision-window-host.sh"), "open-id", root.tbHost, root.tbAsUser, String(added[index].id)
+      ])
+    }
   }
   function applyPayload(text) {
     try {
       var payload = JSON.parse(String(text || ""))
-      allRequests = payload.requests || []
+      var incoming = payload.requests || []
+      if (fetchedOnce) {
+        var priorIds = {}
+        for (var oldIndex = 0; oldIndex < allRequests.length; oldIndex++)
+          priorIds[String(allRequests[oldIndex].id)] = true
+        var added = []
+        for (var newIndex = 0; newIndex < incoming.length; newIndex++)
+          if (!priorIds[String(incoming[newIndex].id)]) added.push(incoming[newIndex])
+        notifyNewRequests(added)
+      }
+      allRequests = incoming
       kinds = payload.kinds || []
+      fetchedOnce = true
       fetchFailed = false
       applyFilter()
       statusText = ""
@@ -194,9 +241,13 @@ Panel {
     }
     return ""
   }
-  function hasRequest(id) {
-    for (var index = 0; index < requests.length; index++)
-      if (requests[index].id === id) return true
+  function copyToClipboard(value) {
+    if (String(value || "") === "") return
+    Quickshell.execDetached(["bash", "-c", "printf %s " + Util.shellQuote(String(value)) + " | wl-copy"])
+  }
+  function hasOpenRequest(id) {
+    for (var index = 0; index < allRequests.length; index++)
+      if (allRequests[index].id === id) return true
     return false
   }
   function markSeen() {
@@ -208,25 +259,26 @@ Panel {
     seenProcess.running = true
     hasNew = false
   }
-  function submitChoice(choiceNumber) {
-    if (!detailRequest || replying) return
-    replying = true
-    statusText = "Recording decision…"
-    replyProcess.command = [script("reply.sh"), root.tbHost, root.tbAsUser, detailRequest.id, String(choiceNumber)]
-    replyProcess.running = true
-  }
   function openRequest(index) {
-    headerSplit = -1
     if (index < 0 || index >= requests.length) return
     requestList.currentIndex = index
-    detailRequest = requests[index]
-    detailWindow.visible = true
-    root.close()
-    chat.request = detailRequest
-    chat.start()
-    Qt.callLater(function() { detailFocus.forceActiveFocus() })
+    openRequestObject(requests[index])
   }
-  function moveListPage(direction) {
+  function openRequestById(id) {
+    for (var index = 0; index < allRequests.length; index++) {
+      if (String(allRequests[index].id) === String(id)) {
+        openRequestObject(allRequests[index])
+        return true
+      }
+    }
+    return false
+  }
+  function openRequestObject(request) {
+    Quickshell.execDetached([script("decision-window-host.sh"), "open-json", root.tbHost, root.tbAsUser, JSON.stringify(request)])
+    root.close()
+  }
+
+ function moveListPage(direction) {
     if (requests.length === 0) return
     var rowHeight = requestList.currentItem ? requestList.currentItem.height + requestList.spacing : Style.space(42)
     var step = Math.max(1, Math.floor(requestList.height / Math.max(1, rowHeight) / 2))
@@ -237,7 +289,21 @@ Panel {
   visible: true
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
-  Component.onCompleted: refreshNow()
+  Component.onCompleted: {
+    Quickshell.execDetached([script("decision-window-host.sh"), "ensure", root.tbHost, root.tbAsUser])
+    startupRefresh.restart()
+  }
+  onSettingsChanged: {
+    Quickshell.execDetached([script("decision-window-host.sh"), "ensure", root.tbHost, root.tbAsUser])
+    startupRefresh.restart()
+  }
+
+  Timer {
+    id: startupRefresh
+    interval: 100
+    repeat: false
+    onTriggered: root.refreshNow()
+  }
 
   FileView {
     id: kindSettingsFile
@@ -258,6 +324,7 @@ Panel {
     repeat: false
     onTriggered: root.flushKindSettings()
   }
+
   onOpenedChanged: if (opened) { refreshNow(); Qt.callLater(function() { markSeen(); listKeys.forceActiveFocus() }) }
 
   Timer { interval: Math.max(10, Number(root.setting("refreshIntervalSec", 30))) * 1000; running: true; repeat: true; onTriggered: root.refreshNow() }
@@ -280,34 +347,28 @@ Panel {
     }
   }
   Process { id: seenProcess }
-  Process {
-    id: replyProcess
-    stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.statusText = String(text || "").trim() }
-    stderr: StdioCollector { waitForEnd: true; onStreamFinished: if (String(text || "").trim() !== "") root.statusText = String(text).trim() }
-    onExited: function(code) {
-      root.replying = false
-      if (code === 0) { detailWindow.visible = false; root.refreshNow() }
-    }
-  }
   IpcHandler {
     target: root.ipcTarget
     function open(): void { root.open() }
     function close(): void { root.close() }
     function toggle(): void { root.toggle() }
     function refresh(): string { root.refreshNow(); return "ok" }
+    function openRequestId(id: string): string {
+      return root.openRequestById(id) ? "ok" : "not-found"
+    }
   }
 
   WidgetButton {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: "󰗑"
+    text: "󰗑  " + (root.fetchedOnce ? root.allRequests.length : "…")
     labelVisible: true
     horizontalMargin: 12
     verticalPadding: 8.75
     tooltipText: root.refreshing
       ? "Refreshing Tightbeam…"
-      : root.requests.length + " decision request" + (root.requests.length === 1 ? "" : "s") + " on " + root.hostName
+      : root.allRequests.length + " decision request" + (root.allRequests.length === 1 ? "" : "s") + " on " + root.hostName
     onPressed: function(buttonCode) { if (buttonCode === Qt.MiddleButton) root.refreshNow(); else root.toggle() }
     Rectangle {
       visible: root.hasNew
@@ -355,7 +416,9 @@ Panel {
         spacing: Style.space(12)
         PanelHero {
           width: parent.width
-          title: root.requests.length + " decision request" + (root.requests.length === 1 ? "" : "s")
+          title: root.requests.length === root.allRequests.length
+            ? root.allRequests.length + " decision request" + (root.allRequests.length === 1 ? "" : "s")
+            : root.requests.length + " of " + root.allRequests.length + " decision requests"
           meta: "Tightbeam · " + root.hostName + (root.refreshing ? " · refreshing…" : "")
           foreground: root.foreground
           fontFamily: root.fontFamily
@@ -389,11 +452,11 @@ Panel {
             delegate: Button {
               required property var modelData
               readonly property bool on: root.kindEnabled(modelData)
-              text: modelData + " " + root.countForKind(modelData)
+              text: (on ? "☑  " : "☐  ") + modelData + " " + root.countForKind(modelData)
               tooltipText: (on ? "Hide" : "Show") + " " + modelData + " decision requests"
               foreground: on ? root.foreground : root.dim
               fontFamily: root.fontFamily
-              bordered: on
+              bordered: true
               horizontalPadding: Style.spacing.controlGap
               verticalPadding: Style.spacing.labelGap
               onClicked: root.toggleKind(modelData)
@@ -409,6 +472,31 @@ Panel {
           spacing: Style.space(6)
           clip: true
           currentIndex: root.requests.length > 0 ? 0 : -1
+          section.property: "poSection"
+          section.criteria: ViewSection.FullString
+          section.labelPositioning: ViewSection.InlineLabels
+          section.delegate: Item {
+            required property string section
+            width: requestList.width
+            height: poTitle.implicitHeight + Style.space(14)
+
+            Text {
+              id: poTitle
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.bottom: parent.bottom
+              anchors.leftMargin: Style.space(4)
+              anchors.rightMargin: Style.space(4)
+              anchors.bottomMargin: Style.space(4)
+              text: section
+              color: root.dim
+              font.family: root.fontFamily
+              font.pixelSize: root.captionSize
+              font.bold: true
+              font.letterSpacing: 0.6
+              elide: Text.ElideRight
+            }
+          }
           delegate: Rectangle {
             required property var modelData
             required property int index
@@ -422,16 +510,6 @@ Panel {
               anchors.verticalCenter: parent.verticalCenter
               anchors.margins: Style.space(9)
               spacing: Style.space(2)
-              // A request names no project, so the work it came from is the
-              // only thing that says what this is about. It leads the row.
-              Text {
-                width: parent.width
-                visible: String(modelData.subject || "") !== ""
-                text: modelData.subject
-                color: root.dim
-                font.family: root.fontFamily; font.pixelSize: root.captionSize
-                elide: Text.ElideRight
-              }
               Text {
                 id: rowText
                 width: parent.width
@@ -463,200 +541,4 @@ Panel {
     }
   }
 
-  // The detail window is anchored to the window, not nested in a ScrollView.
-  // The previous layout put a `width: parent.width` Column inside a ScrollView,
-  // where `parent` is the flickable content item — so the content sized itself
-  // from its children instead of the window and never tracked a resize.
-  FloatingWindow {
-    id: detailWindow
-    visible: false
-    title: root.detailRequest ? "Decision request — " + root.detailRequest.id : "Decision request"
-    color: Color.background
-    implicitWidth: Math.round(820 * root.fontScale)
-    implicitHeight: Math.round(760 * root.fontScale)
-    minimumSize: Qt.size(560, 480)
-    onVisibleChanged: if (!visible) chat.stop()
-    // `visible` is what we asked for; `backingWindowVisible` is what the
-    // compositor actually has. Closing the window from its titlebar tears down
-    // the backing window WITHOUT clearing `visible`, so a later `visible = true`
-    // is a no-op and the window never reopens. Sync the request back to reality
-    // — that also lets onVisibleChanged shut the agent session down.
-    onBackingWindowVisibleChanged: if (visible && !backingWindowVisible) visible = false
-
-    FocusScope {
-      id: detailFocus
-      anchors.fill: parent
-      focus: true
-
-      Keys.onPressed: function(event) {
-        if (root.handleFontKey(event) || chat.handleScrollKey(event, false)) event.accepted = true
-      }
-
-      Item {
-        anchors.fill: parent
-        anchors.margins: Style.space(24)
-
-        // Capping each field and clipping meant a long question simply vanished
-        // below the fold with no way to reach it. The fields size to their
-        // content now and the header as a whole scrolls, bounded so it cannot
-        // crowd out the conversation beneath it.
-        Flickable {
-          id: detailHeaderScroll
-          anchors.top: parent.top
-          anchors.left: parent.left
-          anchors.right: parent.right
-          height: root.headerHeight
-          contentHeight: detailHeader.implicitHeight
-          clip: true
-          boundsBehavior: Flickable.StopAtBounds
-
-        Column {
-          id: detailHeader
-          width: detailHeaderScroll.width
-          spacing: Style.space(6)
-
-          TextEdit {
-            width: detailHeader.width
-            visible: root.detailRequest && String(root.detailRequest.subject || "") !== ""
-            text: root.detailRequest ? root.detailRequest.subject : ""
-            color: root.foreground
-            font.family: root.fontFamily
-            font.pixelSize: root.captionSize
-            font.bold: true
-            wrapMode: TextEdit.Wrap
-            readOnly: true
-            selectByMouse: true
-            clip: true
-            activeFocusOnPress: true
-            Keys.onPressed: function(event) { if (root.handleHeaderKey(event)) event.accepted = true }
-          }
-          Text {
-            text: "DECISION REQUEST"
-            color: root.urgent
-            font.family: root.fontFamily
-            font.pixelSize: root.captionSize
-            font.bold: true
-            font.letterSpacing: 1.5
-          }
-          TextEdit {
-            width: detailHeader.width
-            text: root.detailRequest ? root.detailRequest.question : ""
-            color: Color.foreground
-            font.family: root.fontFamily
-            font.pixelSize: root.titleSize
-            font.bold: true
-            wrapMode: TextEdit.Wrap
-            readOnly: true
-            selectByMouse: true
-            clip: true
-            activeFocusOnPress: true
-            Keys.onPressed: function(event) { if (root.handleHeaderKey(event)) event.accepted = true }
-          }
-          // The ids are the whole reason to want selection here, so they wrap
-          // rather than elide -- a truncated id is useless to copy.
-          TextEdit {
-            width: detailHeader.width
-            text: root.detailRequest
-              ? root.detailRequest.id
-                + (root.detailRequest.assignmentId ? "  ·  " + root.detailRequest.assignmentId : "")
-                + (root.detailRequest.workItemId ? "  ·  " + root.detailRequest.workItemId : "")
-              : ""
-            color: root.dim
-            font.family: root.fontFamily
-            font.pixelSize: root.captionSize
-            wrapMode: TextEdit.Wrap
-            readOnly: true
-            selectByMouse: true
-            clip: true
-            activeFocusOnPress: true
-            Keys.onPressed: function(event) { if (root.handleHeaderKey(event)) event.accepted = true }
-          }
-          TextEdit {
-            width: detailHeader.width
-            visible: root.detailRequest && root.detailRequest.note !== ""
-            text: root.detailRequest ? root.detailRequest.note : ""
-            color: root.dim
-            font.family: root.fontFamily
-            font.pixelSize: root.captionSize
-            wrapMode: TextEdit.Wrap
-            topPadding: Style.space(4)
-            readOnly: true
-            selectByMouse: true
-            clip: true
-            activeFocusOnPress: true
-            Keys.onPressed: function(event) { if (root.handleHeaderKey(event)) event.accepted = true }
-          }
-        }
-        }
-
-        // The fixed header reads as its own surface rather than as content
-        // above a line. Negative margins cancel the content inset so the band
-        // meets the window edges; z keeps it behind the header text.
-        Rectangle {
-          id: detailHeaderBand
-          anchors.top: parent.top
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.topMargin: -Style.space(24)
-          anchors.leftMargin: -Style.space(24)
-          anchors.rightMargin: -Style.space(24)
-          height: detailHeaderScroll.height + Style.space(24) + Style.space(16)
-          color: root.mixColor(Color.background, root.foreground, 0.07)
-          z: -1
-        }
-
-        // Drag to move the split; double-click to hand it back to auto.
-        MouseArea {
-          id: splitGrip
-          anchors.top: detailHeaderBand.bottom
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.leftMargin: -Style.space(24)
-          anchors.rightMargin: -Style.space(24)
-          anchors.topMargin: -Style.space(5)
-          height: Style.space(10)
-          cursorShape: Qt.SizeVerCursor
-          hoverEnabled: true
-          z: 2
-          property real pressScreenY: 0
-          property real pressHeight: 0
-          onPressed: function(mouse) {
-            pressScreenY = mapToItem(null, mouse.x, mouse.y).y
-            pressHeight = root.headerHeight
-          }
-          onPositionChanged: function(mouse) {
-            if (!pressed) return
-            root.headerSplit = pressHeight + (mapToItem(null, mouse.x, mouse.y).y - pressScreenY)
-          }
-          onDoubleClicked: root.headerSplit = -1
-
-          Rectangle {
-            anchors.centerIn: parent
-            width: Style.space(46)
-            height: 2
-            radius: 1
-            color: splitGrip.containsMouse || splitGrip.pressed
-              ? root.foreground
-              : root.mixColor(Color.background, root.foreground, 0.28)
-          }
-        }
-
-        DecisionChat {
-          id: chat
-          anchors.top: detailHeaderBand.bottom
-          anchors.topMargin: Style.space(14)
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.bottom: parent.bottom
-          host: root.tbHost
-          user: root.tbAsUser
-          fontScale: root.fontScale
-          messageScript: root.script("message.sh")
-          onRuleRequested: function(choiceNumber) { root.submitChoice(choiceNumber) }
-          onFontStepRequested: function(step) { root.adjustFontScale(step) }
-          onFontResetRequested: root.setFontScale(1)
-        }
-      }
-    }
-  }
 }

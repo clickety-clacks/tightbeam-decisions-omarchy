@@ -4,7 +4,7 @@ set -euo pipefail
 export TB_HOST="${1:-}"
 export TB_AS_USER="${2:-}"
 request_id="${3:?request id required}"
-choice_number="${4:?choice number required}"
+choice_label="${4:?choice label required}"
 source "$(dirname "$(readlink -f "$0")")/tightbeam.sh"
 
 payload=$(tb decision-requests --status open)
@@ -17,9 +17,8 @@ else
   options=$(jq -c '[.options[] | if type == "object" then .label else . end]' <<<"$request")
 fi
 
-if ! [[ "$choice_number" =~ ^[0-9]+$ ]]; then echo "Type an option number" >&2; exit 2; fi
-index=$((choice_number - 1))
-choice=$(jq -er --argjson i "$index" '.[$i]' <<<"$options") || { echo "No such option" >&2; exit 2; }
+choice=$(jq -er --arg wanted "$choice_label" '.[] | select(. == $wanted)' <<<"$options") \
+  || { echo "No such recordable option: $choice_label" >&2; exit 2; }
 
 if [[ "$kind" == "effort" ]]; then
   tb effort-rule --request "$request_id" --action "$choice"
