@@ -30,6 +30,7 @@ FloatingWindow {
   readonly property string tbAsUser: owner.tbAsUser
   property string parentSummary: ""
   property string noteSummary: ""
+  property var choiceLabels: []
   property string summaryRaw: ""
   property bool replying: false
   property string selectedChoice: ""
@@ -45,10 +46,15 @@ FloatingWindow {
   function handleHeaderKey(event) { return handleFontKey(event) || chat.handleMotionTunerKey(event) || chat.handleScrollKey(event, false) }
   function copyToClipboard(value) { owner.copyToClipboard(value) }
   function summaryPrompt() {
-    return ["Summarize two UI fields. Do not use tools. Return ONLY one JSON object on one line.",
-      "Schema: {\"parent\":\"2-6 plain words\",\"notes\":\"one short line, at most 12 words\"}",
-      "Use an empty string when a field is empty. Do not include ids or labels.",
-      "PARENT:", String(request.subject || ""), "NOTES:", String(request.note || "")].join("\n")
+    return ["Summarize UI fields and rewrite ruling choices. Do not use tools.",
+      "Return ONLY one JSON object on one line.",
+      "Schema: {\"parent\":\"2-6 plain words\",\"notes\":\"one short line, at most 12 words\",\"choices\":[\"short action label\"]}",
+      "The choices array MUST have exactly one entry per input choice, in the same order.",
+      "Each choice label must be 2-7 plain-language words that clearly say what clicking does.",
+      "Do not put ids in rewritten labels. Do not alter, combine, reorder, recommend, or omit choices.",
+      "Use an empty string when parent or notes is empty.",
+      "PARENT:", String(request.subject || ""), "NOTES:", String(request.note || ""),
+      "CHOICES:", JSON.stringify(request.options || [])].join("\n")
   }
   function cleanSummary(value, limit) {
     var text = String(value || "").replace(/\s+/g, " ").trim()
@@ -68,6 +74,15 @@ FloatingWindow {
           var result = JSON.parse(summaryRaw.substring(start, end + 1))
           parentSummary = cleanSummary(result.parent, 80)
           noteSummary = cleanSummary(result.notes, 140)
+          var originalChoices = request && request.options ? request.options : []
+          if (Array.isArray(result.choices) && result.choices.length === originalChoices.length) {
+            var rewritten = []
+            for (var choiceIndex = 0; choiceIndex < result.choices.length; choiceIndex++) {
+              var rewrittenLabel = cleanSummary(result.choices[choiceIndex], 72)
+              rewritten.push(rewrittenLabel === "" ? String(originalChoices[choiceIndex]) : rewrittenLabel)
+            }
+            choiceLabels = rewritten
+          }
         }
       }
     } catch (error) {}
@@ -79,7 +94,7 @@ FloatingWindow {
     }
     replying = true
     selectedChoice = String(choiceLabel)
-    chat.decisionStatus = "Recording “" + String(choiceLabel) + "”…"
+    chat.decisionStatus = "Recording “" + chat.displayLabelForOption(choiceLabel) + "”…"
     replyProcess.command = [script("reply.sh"), tbHost, tbAsUser, request.id, String(choiceLabel)]
     replyProcess.running = true
   }
@@ -719,6 +734,7 @@ FloatingWindow {
           keyboardDeceleration: root.owner.keyboardDeceleration
           motionTunerOpen: root.owner.motionTunerOpen
           decisionBusy: root.replying
+          rulingChoiceLabels: root.choiceLabels
           messageScript: root.script("message.sh")
           onRuleRequested: function(choiceLabel) { root.submitChoice(choiceLabel) }
           onFontStepRequested: function(step) { root.owner.adjustFontScale(step) }

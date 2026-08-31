@@ -97,6 +97,9 @@ Item {
   property string pendingPermissionId: ""
   property string pendingPermissionTitle: ""
   property var choices: []
+  // Display-only rewrites from the lightweight summary agent. The exact
+  // request options remain authoritative and are what ruleRequested emits.
+  property var rulingChoiceLabels: []
   property int proposedRule: -1
   property int submittedPromptIndex: -1
   property bool submittedPromptSpaceActive: false
@@ -344,6 +347,18 @@ Item {
     for (var i = 0; i < options.length; i++)
       if (String(options[i]).trim().toLowerCase() === wanted) return i + 1
     return -1
+  }
+
+  function displayLabelForOption(option) {
+    var options = request && request.options ? request.options : []
+    for (var i = 0; i < options.length; i++) {
+      if (String(options[i]) === String(option)) {
+        var rewritten = i < rulingChoiceLabels.length
+          ? String(rulingChoiceLabels[i] || "").trim() : ""
+        return rewritten !== "" ? rewritten : String(option)
+      }
+    }
+    return String(option)
   }
 
   function rulingChoices() {
@@ -795,7 +810,8 @@ Item {
             text: {
               var options = root.request && root.request.options ? root.request.options : []
               var index = root.proposedRule - 1
-              return "Record: " + (index >= 0 && index < options.length ? options[index] : "option " + root.proposedRule)
+              return "Record: " + (index >= 0 && index < options.length
+                ? root.displayLabelForOption(options[index]) : "option " + root.proposedRule)
             }
             color: ruleMouse.containsMouse ? Color.background : root.foreground
             font.family: Style.font.family
@@ -828,7 +844,7 @@ Item {
             Text {
               id: rulingLabel
               anchors.centerIn: parent
-              text: modelData
+              text: root.displayLabelForOption(modelData)
               color: rulingMouse.containsMouse ? Color.background : root.foreground
               font.family: Style.font.family
               font.pixelSize: root.bodySize
