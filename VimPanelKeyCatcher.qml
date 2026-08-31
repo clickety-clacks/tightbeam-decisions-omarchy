@@ -75,7 +75,7 @@ Item {
       moveRequested(-1, 0); event.accepted = true; return
     }
     if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-      returnRequested(); activateRequested(); event.accepted = true; return
+      returnRequested(); event.accepted = true; return
     }
     if (event.key === Qt.Key_Space) {
       activateRequested(); event.accepted = true; return

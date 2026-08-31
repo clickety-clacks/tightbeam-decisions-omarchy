@@ -60,6 +60,13 @@ Panel {
   readonly property string hostName: tbHost === "" ? "this machine" : tbHost
   readonly property string kindSettingsPath: Quickshell.env("HOME") + "/.config/omarchy/tightbeam-decisions.json"
   property var requests: []
+  property var selectedRequestIds: ({})
+  property int selectionAnchor: -1
+  // Caps Lock is `overload(control, esc)` in this machine's keyd config.
+  // A Caps-held mouse click carries Ctrl, then releasing Caps emits Escape
+  // because keyd saw no keyboard chord. Ignore only that immediate synthetic
+  // Escape; ordinary Escape remains the panel-close key.
+  property double suppressEscapeUntil: 0
   property bool hasNew: false
   property bool refreshing: false
   property bool fetchedOnce: false
@@ -162,6 +169,74 @@ Panel {
     hasNew = anyNew
     if (requests.length > 0 && requestList.currentIndex < 0) requestList.currentIndex = 0
     if (requestList.currentIndex >= requests.length) requestList.currentIndex = Math.max(0, requests.length - 1)
+    pruneSelection()
+  }
+  function isSelected(request) {
+    return !!(request && selectedRequestIds[String(request.id)])
+  }
+  function selectedCount() {
+    var count = 0
+    for (var key in selectedRequestIds) if (selectedRequestIds[key]) count++
+    return count
+  }
+  function replaceSelection(next) { selectedRequestIds = next }
+  function selectOnly(index) {
+    if (index < 0 || index >= requests.length) { replaceSelection({}); selectionAnchor = -1; return }
+    var next = {}
+    next[String(requests[index].id)] = true
+    replaceSelection(next)
+    selectionAnchor = index
+  }
+  function toggleSelection(index) {
+    if (index < 0 || index >= requests.length) return
+    var next = {}
+    for (var key in selectedRequestIds) if (selectedRequestIds[key]) next[key] = true
+    var id = String(requests[index].id)
+    if (next[id]) delete next[id]
+    else next[id] = true
+    replaceSelection(next)
+    selectionAnchor = index
+  }
+  function selectRange(index) {
+    if (index < 0 || index >= requests.length) return
+    var anchor = selectionAnchor >= 0 ? selectionAnchor : requestList.currentIndex
+    if (anchor < 0) anchor = index
+    var next = {}
+    var first = Math.min(anchor, index)
+    var last = Math.max(anchor, index)
+    for (var itemIndex = first; itemIndex <= last; itemIndex++)
+      next[String(requests[itemIndex].id)] = true
+    replaceSelection(next)
+  }
+  function handlePointerSelection(index, modifiers) {
+    requestList.currentIndex = index
+    if (modifiers & Qt.ShiftModifier) selectRange(index)
+    else if (modifiers & Qt.ControlModifier) {
+      toggleSelection(index)
+      suppressEscapeUntil = Date.now() + 700
+    }
+    else selectOnly(index)
+  }
+  function pruneSelection() {
+    var visibleIds = {}
+    for (var index = 0; index < requests.length; index++) visibleIds[String(requests[index].id)] = true
+    var next = {}
+    for (var key in selectedRequestIds) if (selectedRequestIds[key] && visibleIds[key]) next[key] = true
+    replaceSelection(next)
+    if (selectionAnchor >= requests.length) selectionAnchor = requests.length - 1
+  }
+  function effortAge(request) {
+    var match = String(request && request.question ? request.question : "").match(/minutes since arm:\s*(\d+)/i)
+    return match ? match[1] + " min" : ""
+  }
+  function rowTitle(request) {
+    var subject = String(request && request.subject ? request.subject : "").replace(/\s+/g, " ").trim()
+    return subject !== "" ? subject : String(request && request.question ? request.question : "Decision request")
+  }
+  function rowMeta(request) {
+    if (!request || request.kind !== "effort") return ""
+    var age = effortAge(request)
+    return "No response" + (age === "" ? "" : " · " + age + " since check-in")
   }
   function loadKindSettings(raw) {
     var data = {}
@@ -263,6 +338,16 @@ Panel {
     if (index < 0 || index >= requests.length) return
     requestList.currentIndex = index
     openRequestObject(requests[index])
+  }
+  function openSelectedRequests() {
+    if (selectedCount() === 0 && requestList.currentIndex >= 0) selectOnly(requestList.currentIndex)
+    var opened = 0
+    for (var index = 0; index < requests.length; index++) {
+      if (!isSelected(requests[index])) continue
+      Quickshell.execDetached([script("decision-window-host.sh"), "open-json", root.tbHost, root.tbAsUser, JSON.stringify(requests[index])])
+      opened++
+    }
+    if (opened > 0) root.close()
   }
   function openRequestById(id) {
     for (var index = 0; index < allRequests.length; index++) {
@@ -400,12 +485,14 @@ Panel {
         if (dx > 0) { root.openRequest(requestList.currentIndex); return }
         if (dy !== 0 && root.requests.length > 0) {
           requestList.currentIndex = Math.max(0, Math.min(root.requests.length - 1, requestList.currentIndex + dy))
+          root.selectOnly(requestList.currentIndex)
           requestList.positionViewAtIndex(requestList.currentIndex, ListView.Contain)
         }
       }
       onPageRequested: function(direction) { root.moveListPage(direction) }
-      onActivateRequested: root.openRequest(requestList.currentIndex)
-      onCloseRequested: root.close()
+      onActivateRequested: root.selectOnly(requestList.currentIndex)
+      onReturnRequested: root.openSelectedRequests()
+      onCloseRequested: if (Date.now() >= root.suppressEscapeUntil) root.close()
       onTabRequested: function(direction) { root.switchPanel(direction) }
       onFontStepRequested: function(step) { root.adjustFontScale(step) }
       onFontResetRequested: root.setFontScale(1)
@@ -416,9 +503,11 @@ Panel {
         spacing: Style.space(12)
         PanelHero {
           width: parent.width
-          title: root.requests.length === root.allRequests.length
-            ? root.allRequests.length + " decision request" + (root.allRequests.length === 1 ? "" : "s")
-            : root.requests.length + " of " + root.allRequests.length + " decision requests"
+          title: root.selectedCount() > 0
+            ? root.selectedCount() + " selected · Return to open"
+            : (root.requests.length === root.allRequests.length
+              ? root.allRequests.length + " decision request" + (root.allRequests.length === 1 ? "" : "s")
+              : root.requests.length + " of " + root.allRequests.length + " decision requests")
           meta: "Tightbeam · " + root.hostName + (root.refreshing ? " · refreshing…" : "")
           foreground: root.foreground
           fontFamily: root.fontFamily
@@ -500,10 +589,17 @@ Panel {
           delegate: Rectangle {
             required property var modelData
             required property int index
+            readonly property bool selected: root.isSelected(modelData)
             width: requestList.width
             height: rowColumn.implicitHeight + Style.space(18)
             radius: Style.cornerRadius
-            color: ListView.isCurrentItem ? Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.14) : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.05)
+            color: selected
+              ? Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.18)
+              : (ListView.isCurrentItem
+                ? Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.10)
+                : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.05))
+            border.width: selected ? 1 : 0
+            border.color: root.foreground
             Column {
               id: rowColumn
               anchors.left: parent.left; anchors.right: parent.right
@@ -513,17 +609,31 @@ Panel {
               Text {
                 id: rowText
                 width: parent.width
-                text: (modelData.isNew ? "●  " : "") + modelData.question
+                text: (modelData.isNew ? "●  " : "") + root.rowTitle(modelData)
                 color: modelData.isNew ? root.urgent : root.foreground
                 font.family: root.fontFamily; font.pixelSize: root.captionSize
+                elide: Text.ElideRight
+              }
+              Text {
+                width: parent.width
+                visible: root.rowMeta(modelData) !== ""
+                text: root.rowMeta(modelData)
+                color: root.dim
+                font.family: root.fontFamily
+                font.pixelSize: root.captionSize
                 elide: Text.ElideRight
               }
             }
             MouseArea {
               anchors.fill: parent
               hoverEnabled: true
+              preventStealing: true
               onEntered: requestList.currentIndex = index
-              onClicked: root.openRequest(index)
+              onPressed: function(mouse) { mouse.accepted = true }
+              onClicked: function(mouse) {
+                root.handlePointerSelection(index, mouse.modifiers)
+                mouse.accepted = true
+              }
             }
           }
         }
