@@ -88,6 +88,8 @@ Item {
 
   property bool bridgeReady: false
   property bool waiting: false
+  property bool steeringSupported: false
+  property bool steeringPending: false
   property bool sessionLost: false
   property string statusText: ""
   property string decisionStatus: ""
@@ -246,6 +248,8 @@ Item {
     submittedPromptSpaceActive = false
     submittedPromptY = 0
     bridgeReady = false
+    steeringSupported = false
+    steeringPending = false
     sessionLost = false
     activeReply = -1
     activeReplyMessageId = ""
@@ -262,6 +266,8 @@ Item {
     agent.running = false
     bridgeReady = false
     waiting = false
+    steeringSupported = false
+    steeringPending = false
     queuedPrompt = ""
     statusText = ""
     decisionStatus = ""
@@ -278,7 +284,24 @@ Item {
 
   function send(text) {
     var value = String(text || "").trim()
-    if (value === "" || waiting || sessionLost) return
+    if (value === "" || sessionLost) return false
+    if (waiting) {
+      if (!steeringSupported || steeringPending || !bridgeReady || !agent.running) return false
+      steeringPending = true
+      statusText = "Steering…"
+      choices = []
+      proposedRule = -1
+      messages.append({ role: "You", body: value })
+      submittedPromptIndex = messages.count - 1
+      submittedPromptSpaceActive = true
+      submittedPromptY = 0
+      messages.append({ role: "Claude", body: "" })
+      activeReply = messages.count - 1
+      activeReplyMessageId = ""
+      agent.write(JSON.stringify({ type: "steer", text: value }) + "\n")
+      revealLatestTimer.restart()
+      return true
+    }
     choices = []
     proposedRule = -1
     waiting = true
@@ -293,6 +316,7 @@ Item {
     queuedPrompt = value
     revealLatestTimer.restart()
     if (bridgeReady) flush()
+    return true
   }
 
   function flush() {
@@ -489,15 +513,25 @@ Item {
       var event = JSON.parse(line)
       if (event.type === "ready") {
         bridgeReady = true
+        steeringSupported = event.steeringSupported === true
         flush()
       } else if (event.type === "text") {
         appendReply(String(event.text || ""), String(event.messageId || ""))
         statusText = "Replying…"
       } else if (event.type === "done") {
         waiting = false
+        steeringPending = false
         statusText = ""
         harvestBlocks()
         activeReplyMessageId = ""
+      } else if (event.type === "steered") {
+        steeringPending = false
+        statusText = "Thinking…"
+        Qt.callLater(function() { input.forceActiveFocus() })
+      } else if (event.type === "steering_error") {
+        steeringPending = false
+        statusText = String(event.message || "Could not steer the active turn")
+        Qt.callLater(function() { input.forceActiveFocus() })
       } else if (event.type === "status") {
         statusText = String(event.text || "Working…")
       } else if (event.type === "tool") {
@@ -509,11 +543,13 @@ Item {
         pendingPermissionTitle = String(event.title || "Use a tool")
       } else if (event.type === "error") {
         waiting = false
+        steeringPending = false
         statusText = String(event.message || "Agent error")
       } else if (event.type === "fatal") {
         bridgeReady = false
         sessionLost = true
         waiting = false
+        steeringPending = false
         statusText = String(event.message || "Session lost") + " · reopen to retry"
       }
     } catch (error) {}
@@ -528,6 +564,8 @@ Item {
     stdout: SplitParser { onRead: function(line) { root.handleLine(line) } }
     onExited: {
       root.bridgeReady = false
+      root.steeringSupported = false
+      root.steeringPending = false
       if (!root.sessionLost && root.waiting) {
         root.waiting = false
         root.sessionLost = true
@@ -926,17 +964,18 @@ Item {
         color: root.foreground
         font.family: Style.font.family
         font.pixelSize: root.bodySize
-        placeholderText: root.waiting ? "" : "Ask about this decision…"
+        placeholderText: root.waiting && root.steeringSupported ? "Steer this turn…" : "Ask about this decision…"
         placeholderTextColor: root.muted
         wrapMode: TextEdit.Wrap
-        enabled: !root.waiting && !root.sessionLost
+        enabled: !root.sessionLost && (!root.waiting
+          || (root.steeringSupported && !root.steeringPending))
+        opacity: root.steeringPending ? 0.45 : 1
         background: null
         Keys.onPressed: function(event) {
           if (root.handleFontKey(event) || root.handleMotionTunerKey(event) || root.handleScrollKey(event, true)) { event.accepted = true; return }
           if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
               && !(event.modifiers & Qt.ShiftModifier)) {
-            root.send(input.text)
-            input.text = ""
+            if (root.send(input.text)) input.text = ""
             event.accepted = true
           } else if (event.key === Qt.Key_Y && root.pendingPermissionId !== "" && input.text === "") {
             root.answerPermission(true); event.accepted = true

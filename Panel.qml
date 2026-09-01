@@ -214,8 +214,10 @@ Panel {
     else if (modifiers & Qt.ControlModifier) {
       toggleSelection(index)
       suppressEscapeUntil = Date.now() + 700
+    } else {
+      selectOnly(index)
+      openRequest(index)
     }
-    else selectOnly(index)
   }
   function pruneSelection() {
     var visibleIds = {}
