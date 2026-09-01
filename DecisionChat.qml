@@ -63,6 +63,10 @@ Item {
   }
 
   signal ruleRequested(string choiceLabel)
+  // DecisionWindow supplies this callback so ruling buttons can invoke the
+  // recorder directly. Keep the signal as a fallback for embedders that do
+  // not provide one.
+  property var ruleAction: null
   // The panel owns the scale; the chat only asks for a change. Routed as
   // signals because a focused TextEdit or TextArea claims Ctrl +/- before any
   // window-level handler sees it.
@@ -317,6 +321,13 @@ Item {
     revealLatestTimer.restart()
     if (bridgeReady) flush()
     return true
+  }
+
+  function activateRule(choiceLabel) {
+    var choice = String(choiceLabel)
+    decisionStatus = "Submitting “" + displayLabelForOption(choice) + "”…"
+    if (typeof ruleAction === "function") ruleAction(choice)
+    else ruleRequested(choice)
   }
 
   function flush() {
@@ -864,7 +875,7 @@ Item {
             onClicked: {
               var options = root.request && root.request.options ? root.request.options : []
               var index = root.proposedRule - 1
-              if (index >= 0 && index < options.length) root.ruleRequested(String(options[index]))
+              if (index >= 0 && index < options.length) root.activateRule(options[index])
             }
           }
         }
@@ -894,7 +905,7 @@ Item {
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
               enabled: true
-              onClicked: root.ruleRequested(String(rulingButton.modelData))
+              onClicked: root.activateRule(rulingButton.modelData)
             }
           }
         }

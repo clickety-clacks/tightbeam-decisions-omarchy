@@ -735,8 +735,8 @@ FloatingWindow {
           motionTunerOpen: root.owner.motionTunerOpen
           decisionBusy: root.replying
           rulingChoiceLabels: root.choiceLabels
+          ruleAction: function(choiceLabel) { root.submitChoice(choiceLabel) }
           messageScript: root.script("message.sh")
-          onRuleRequested: function(choiceLabel) { root.submitChoice(choiceLabel) }
           onFontStepRequested: function(step) { root.owner.adjustFontScale(step) }
           onFontResetRequested: root.owner.setFontScale(1)
           onMotionTunerRequested: root.owner.openMotionTuner()
