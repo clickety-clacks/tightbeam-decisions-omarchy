@@ -19,7 +19,7 @@ host_call() {
 
 if ! host_call ping; then
   QML_IMPORT_PATH="/usr/share/omarchy/shell${QML_IMPORT_PATH:+:$QML_IMPORT_PATH}" \
-    nohup qs -p "$config_path" >"$log_dir/window-host.log" 2>&1 &
+    nohup qs -p "$config_path" 9>&- >"$log_dir/window-host.log" 2>&1 &
   for _ in $(seq 1 50); do
     host_call ping && break
     sleep 0.1
