@@ -72,6 +72,7 @@ ShellRoot {
   }
   function openMotionTuner() { motionTuner.open() }
   function configure(host, asUser) {
+    reloadTheme()
     var changed = tbHost !== String(host || "") || tbAsUser !== String(asUser || "")
     tbHost = String(host || "")
     tbAsUser = String(asUser || "")
@@ -146,6 +147,13 @@ ShellRoot {
     data.keyboardDeceleration = keyboardDeceleration
     settingsFile.setText(JSON.stringify(data, null, 2) + "\n")
   }
+  function reloadTheme() {
+    // Theme application atomically replaces the whole `current/theme`
+    // directory. A watcher attached to a file in the old directory remains
+    // attached to that deleted inode, so explicitly reopen the live paths.
+    themeColorsFile.reload()
+    themeShellFile.reload()
+  }
 
   // Color's built-in startup readers deliberately do not watch theme files;
   // the main Omarchy Shell receives theme changes over its own IPC. This is a
@@ -170,6 +178,7 @@ ShellRoot {
   }
   FileView { id: settingsFile; path: root.settingsPath; atomicWrites: true; printErrors: false; onLoaded: root.loadSettings(text()) }
   Timer { id: saveSettings; interval: 200; onTriggered: root.flushSettings() }
+  Timer { interval: 1000; running: true; repeat: true; onTriggered: root.reloadTheme() }
   Timer { interval: 30000; running: true; repeat: true; onTriggered: root.refreshNow() }
   Process {
     id: fetchProcess
@@ -186,6 +195,9 @@ ShellRoot {
   IpcHandler {
     target: "mike.tightbeam-decision-windows"
     function ping(): string { return "ok" }
+    function palette(): string {
+      return JSON.stringify({ background: String(Color.background), foreground: String(Color.foreground) })
+    }
     function configure(host: string, asUser: string): string { root.configure(host, asUser); return "ok" }
     function openJson(payload: string, host: string, asUser: string): string {
       root.configure(host, asUser)
