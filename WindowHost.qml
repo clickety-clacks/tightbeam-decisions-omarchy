@@ -7,6 +7,7 @@ ShellRoot {
   id: root
   readonly property string pluginDir: Qt.resolvedUrl(".").toString().replace("file://", "").replace(/\/$/, "")
   readonly property string settingsPath: Quickshell.env("HOME") + "/.config/omarchy/tightbeam-decisions.json"
+  readonly property string currentThemePath: Quickshell.env("HOME") + "/.local/state/omarchy/current/theme"
   property string tbHost: ""
   property string tbAsUser: ""
   property var allRequests: []
@@ -146,6 +147,27 @@ ShellRoot {
     settingsFile.setText(JSON.stringify(data, null, 2) + "\n")
   }
 
+  // Color's built-in startup readers deliberately do not watch theme files;
+  // the main Omarchy Shell receives theme changes over its own IPC. This is a
+  // separate Quickshell process, so mirror that bootstrap and watch the files
+  // directly to keep existing decision windows on the active theme.
+  FileView {
+    id: themeColorsFile
+    path: root.currentThemePath + "/colors.toml"
+    watchChanges: true
+    printErrors: false
+    onLoaded: Color.loadColors(text())
+    onFileChanged: reload()
+  }
+  FileView {
+    id: themeShellFile
+    path: root.currentThemePath + "/shell.toml"
+    watchChanges: true
+    printErrors: false
+    onLoaded: { Color.loadShell(text()); Style.scheduleRefresh() }
+    onLoadFailed: { Color.loadShell(""); Style.scheduleRefresh() }
+    onFileChanged: reload()
+  }
   FileView { id: settingsFile; path: root.settingsPath; atomicWrites: true; printErrors: false; onLoaded: root.loadSettings(text()) }
   Timer { id: saveSettings; interval: 200; onTriggered: root.flushSettings() }
   Timer { interval: 30000; running: true; repeat: true; onTriggered: root.refreshNow() }
