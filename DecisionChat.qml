@@ -193,10 +193,12 @@ Item {
       "every id and URL the request mentions. Read PRs with gh if one is linked.",
       "",
       "THEN ANSWER AS CLEAN, POLISHED MARKDOWN IN EXACTLY THIS SHAPE:",
+      "```header-summary",
+      "A 4-10 word plain-language label for the decision. This goes in the compact",
+      "window header, so make it much shorter than the TL;DR. No ids or jargon.",
+      "```",
       "## TL;DR",
-      "One or two short sentences in plain words. No Tightbeam jargon or ids. This",
-      "exact section is also reused as the compact description in the window header,",
-      "so make it self-contained and immediately understandable.",
+      "One or two short sentences in plain words. No Tightbeam jargon or ids.",
       "## What the options mean",
       "Use one concise bullet per option. Bold the option label, then explain what",
       "choosing it actually causes — consequences and tradeoffs, not a restatement.",
@@ -355,6 +357,9 @@ Item {
   function harvestBlocks() {
     if (activeReply < 0 || activeReply >= messages.count) return
     var body = String(messages.get(activeReply).body || "")
+    var withoutHeader = body.replace(/```header-summary[ \t]*\n[\s\S]*?```/gi, "").trim()
+    var removedHeader = withoutHeader !== body
+    body = withoutHeader
     var pattern = /```(choices|rule)[ \t]*\n([\s\S]*?)```/g
     var found = []
     var rule = -1
@@ -371,7 +376,7 @@ Item {
         if (!isNaN(parsed)) rule = parsed
       }
     }
-    if (found.length === 0 && rule < 0) return
+    if (found.length === 0 && rule < 0 && !removedHeader) return
     messages.setProperty(activeReply, "body", body.replace(pattern, "").trim())
     choices = found
     proposedRule = rule
@@ -380,7 +385,9 @@ Item {
   function publishHeaderSummary() {
     if (activeReply < 0 || activeReply >= messages.count) return
     var body = String(messages.get(activeReply).body || "")
-    var match = /(?:^|\n)##\s*TL;DR\s*\n([\s\S]*?)(?=\n##\s|\n```|$)/i.exec(body)
+    var match = /```header-summary[ \t]*\n([\s\S]*?)```/i.exec(body)
+    if (!match)
+      match = /(?:^|\n)##\s*TL;DR\s*\n([\s\S]*?)(?=\n##\s|\n```|$)/i.exec(body)
     if (!match) return
     var summary = String(match[1] || "")
       .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
@@ -389,6 +396,8 @@ Item {
       .replace(/^\s*[-+]\s+/gm, "")
       .replace(/\s+/g, " ")
       .trim()
+    var words = summary.split(" ")
+    if (words.length > 10) summary = words.slice(0, 10).join(" ") + "…"
     if (summary !== "") headerSummaryReady(summary)
   }
 
@@ -551,8 +560,8 @@ Item {
         waiting = false
         steeringPending = false
         statusText = ""
-        harvestBlocks()
         if (submittedPromptIndex < 0) publishHeaderSummary()
+        harvestBlocks()
         activeReplyMessageId = ""
       } else if (event.type === "steered") {
         steeringPending = false
