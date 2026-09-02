@@ -63,6 +63,7 @@ Item {
   }
 
   signal ruleRequested(string choiceLabel)
+  signal headerSummaryReady(string summary)
   // DecisionWindow supplies this callback so ruling buttons can invoke the
   // recorder directly. Keep the signal as a fallback for embedders that do
   // not provide one.
@@ -193,7 +194,9 @@ Item {
       "",
       "THEN ANSWER AS CLEAN, POLISHED MARKDOWN IN EXACTLY THIS SHAPE:",
       "## TL;DR",
-      "A two-or-three sentence summary in plain words. No Tightbeam jargon or ids.",
+      "One or two short sentences in plain words. No Tightbeam jargon or ids. This",
+      "exact section is also reused as the compact description in the window header,",
+      "so make it self-contained and immediately understandable.",
       "## What the options mean",
       "Use one concise bullet per option. Bold the option label, then explain what",
       "choosing it actually causes — consequences and tradeoffs, not a restatement.",
@@ -374,6 +377,21 @@ Item {
     proposedRule = rule
   }
 
+  function publishHeaderSummary() {
+    if (activeReply < 0 || activeReply >= messages.count) return
+    var body = String(messages.get(activeReply).body || "")
+    var match = /(?:^|\n)##\s*TL;DR\s*\n([\s\S]*?)(?=\n##\s|\n```|$)/i.exec(body)
+    if (!match) return
+    var summary = String(match[1] || "")
+      .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+      .replace(/[`*_~>#]/g, "")
+      .replace(/^\s*[-+]\s+/gm, "")
+      .replace(/\s+/g, " ")
+      .trim()
+    if (summary !== "") headerSummaryReady(summary)
+  }
+
   // A chip whose text IS one of the request's options rules directly — clicking
   // "dismiss" should dismiss, not start another round of confirmation.
   function optionIndexFor(label) {
@@ -534,6 +552,7 @@ Item {
         steeringPending = false
         statusText = ""
         harvestBlocks()
+        if (submittedPromptIndex < 0) publishHeaderSummary()
         activeReplyMessageId = ""
       } else if (event.type === "steered") {
         steeringPending = false

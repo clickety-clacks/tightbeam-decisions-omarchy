@@ -30,6 +30,7 @@ FloatingWindow {
   readonly property string tbAsUser: owner.tbAsUser
   property string parentSummary: ""
   property string noteSummary: ""
+  property string questionSummary: ""
   property var choiceLabels: []
   property string summaryRaw: ""
   property bool replying: false
@@ -620,19 +621,120 @@ FloatingWindow {
             font.bold: true
             font.letterSpacing: 1.5
           }
-          TextEdit {
+          Item {
+            id: descriptionBlock
             width: detailHeader.width
-            text: root.request ? root.request.question : ""
-            color: Color.foreground
-            font.family: root.fontFamily
-            font.pixelSize: root.titleSize
-            font.bold: true
-            wrapMode: TextEdit.Wrap
-            readOnly: true
-            selectByMouse: true
-            clip: true
-            activeFocusOnPress: true
-            Keys.onPressed: function(event) { if (root.handleHeaderKey(event)) event.accepted = true }
+            height: descriptionText.contentHeight
+
+            function placePopup() {
+              var point = descriptionBlock.mapToItem(detailFocus, 0, 0)
+              var margin = Style.space(8)
+              var minX = margin - point.x
+              var maxX = detailFocus.width - margin - point.x - descriptionPopup.width
+              descriptionPopup.x = Math.max(minX, Math.min(0, maxX))
+              var below = descriptionBlock.height + Style.space(5)
+              var wantedY = point.y + below + descriptionPopup.height <= detailFocus.height - margin
+                ? below : -descriptionPopup.height - Style.space(5)
+              var minY = margin - point.y
+              var maxY = detailFocus.height - margin - point.y - descriptionPopup.height
+              descriptionPopup.y = Math.max(minY, Math.min(wantedY, maxY))
+            }
+
+            TextEdit {
+              id: descriptionText
+              width: parent.width
+              text: root.questionSummary !== ""
+                ? root.questionSummary
+                : (root.request ? String(root.request.question || "") : "")
+              color: Color.foreground
+              font.family: root.fontFamily
+              font.pixelSize: root.bodySize
+              font.bold: false
+              wrapMode: TextEdit.Wrap
+              readOnly: true
+              selectByMouse: true
+              activeFocusOnPress: true
+              Keys.onPressed: function(event) { if (root.handleHeaderKey(event)) event.accepted = true }
+            }
+
+            HoverHandler {
+              id: descriptionHover
+              onHoveredChanged: {
+                if (hovered) {
+                  descriptionClose.stop()
+                  descriptionOpen.restart()
+                } else {
+                  descriptionOpen.stop()
+                  descriptionClose.restart()
+                }
+              }
+            }
+
+            Timer {
+              id: descriptionOpen
+              interval: 500
+              onTriggered: if (descriptionHover.hovered) {
+                descriptionBlock.placePopup()
+                descriptionPopup.open()
+                Qt.callLater(descriptionBlock.placePopup)
+              }
+            }
+
+            Timer {
+              id: descriptionClose
+              interval: 180
+              onTriggered: if (!descriptionHover.hovered && !descriptionPopupHover.hovered)
+                descriptionPopup.close()
+            }
+
+            Popup {
+              id: descriptionPopup
+              width: Math.min(Style.space(680), detailHeader.width)
+              height: Math.min(originalDescription.contentHeight + Style.space(24),
+                               detailFocus.height - Style.space(16))
+              padding: Style.space(12)
+              modal: false
+              focus: false
+              closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+
+              background: Rectangle {
+                color: Color.tooltip.background
+                border.color: Color.tooltip.border
+                border.width: 1
+                radius: Style.cornerRadius
+              }
+
+              contentItem: Flickable {
+                clip: true
+                contentWidth: width
+                contentHeight: originalDescription.contentHeight
+                boundsBehavior: Flickable.StopAtBounds
+                flickableDirection: Flickable.VerticalFlick
+                interactive: contentHeight > height
+
+                TextEdit {
+                  id: originalDescription
+                  width: parent.width
+                  text: root.request ? String(root.request.question || "") : ""
+                  color: Color.tooltip.text
+                  font.family: root.fontFamily
+                  font.pixelSize: root.bodySize
+                  wrapMode: TextEdit.Wrap
+                  readOnly: true
+                  selectByMouse: true
+                  activeFocusOnPress: true
+                  Keys.onPressed: function(event) { if (root.handleHeaderKey(event)) event.accepted = true }
+                }
+              }
+
+              HoverHandler {
+                id: descriptionPopupHover
+                onHoveredChanged: {
+                  if (hovered) descriptionClose.stop()
+                  else descriptionClose.restart()
+                }
+              }
+            }
           }
           Flow {
             width: detailHeader.width
@@ -737,6 +839,7 @@ FloatingWindow {
           rulingChoiceLabels: root.choiceLabels
           ruleAction: function(choiceLabel) { root.submitChoice(choiceLabel) }
           messageScript: root.script("message.sh")
+          onHeaderSummaryReady: function(summary) { root.questionSummary = summary }
           onFontStepRequested: function(step) { root.owner.adjustFontScale(step) }
           onFontResetRequested: root.owner.setFontScale(1)
           onMotionTunerRequested: root.owner.openMotionTuner()
