@@ -77,10 +77,11 @@ written, defaults to shown.
 
 The bar widget is only the list and launcher. Decision detail windows are
 owned by a separate Quickshell instance (`WindowHost.qml`) reached through
-`decision-window-host.sh`. An open window therefore survives both Omarchy
-Shell plugin reloads and Hyprland configuration reloads. The host starts with
-the widget and is recovered automatically when a menu item or notification is
-opened.
+`decision-window-host.sh`. The launcher runs that instance as the transient
+`mike-tightbeam-decision-windows.service` user service, so an open window
+survives the launching process, Omarchy Shell plugin reloads, and Hyprland
+configuration reloads. The host starts with the widget and is recovered
+automatically when a menu item or notification is opened.
 
 ## Agent skill
 
