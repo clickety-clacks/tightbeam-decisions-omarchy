@@ -851,7 +851,7 @@ Item {
           width: ruleLabel.implicitWidth + Style.space(30)
           height: Style.space(42)
           radius: Style.cornerRadius
-          color: ruleMouse.containsMouse ? root.accent : Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.20)
+          color: ruleHover.hovered ? root.accent : Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.20)
           border.color: root.accent
           Text {
             id: ruleLabel
@@ -862,17 +862,19 @@ Item {
               return "Record: " + (index >= 0 && index < options.length
                 ? root.displayLabelForOption(options[index]) : "option " + root.proposedRule)
             }
-            color: ruleMouse.containsMouse ? Color.background : root.foreground
+            color: ruleHover.hovered ? Color.background : root.foreground
             font.family: Style.font.family
             font.pixelSize: root.bodySize
             font.bold: true
           }
-          MouseArea {
-            id: ruleMouse
-            anchors.fill: parent
-            hoverEnabled: true
+          HoverHandler {
+            id: ruleHover
             cursorShape: Qt.PointingHandCursor
-            onClicked: {
+          }
+          TapHandler {
+            acceptedButtons: Qt.LeftButton
+            gesturePolicy: TapHandler.ReleaseWithinBounds
+            onTapped: {
               var options = root.request && root.request.options ? root.request.options : []
               var index = root.proposedRule - 1
               if (index >= 0 && index < options.length) root.activateRule(options[index])
@@ -888,24 +890,25 @@ Item {
             width: rulingLabel.implicitWidth + Style.space(30)
             height: Style.space(42)
             radius: Style.cornerRadius
-            color: rulingMouse.containsMouse ? root.accent : Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.20)
+            color: rulingHover.hovered ? root.accent : Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.20)
             border.color: root.accent
             Text {
               id: rulingLabel
               anchors.centerIn: parent
               text: root.displayLabelForOption(modelData)
-              color: rulingMouse.containsMouse ? Color.background : root.foreground
+              color: rulingHover.hovered ? Color.background : root.foreground
               font.family: Style.font.family
               font.pixelSize: root.bodySize
               font.bold: true
             }
-            MouseArea {
-              id: rulingMouse
-              anchors.fill: parent
-              hoverEnabled: true
+            HoverHandler {
+              id: rulingHover
               cursorShape: Qt.PointingHandCursor
-              enabled: true
-              onClicked: root.activateRule(rulingButton.modelData)
+            }
+            TapHandler {
+              acceptedButtons: Qt.LeftButton
+              gesturePolicy: TapHandler.ReleaseWithinBounds
+              onTapped: root.activateRule(rulingButton.modelData)
             }
           }
         }
