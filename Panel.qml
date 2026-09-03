@@ -377,11 +377,9 @@ Panel {
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
   Component.onCompleted: {
-    Quickshell.execDetached([script("decision-window-host.sh"), "ensure", root.tbHost, root.tbAsUser])
     startupRefresh.restart()
   }
   onSettingsChanged: {
-    Quickshell.execDetached([script("decision-window-host.sh"), "ensure", root.tbHost, root.tbAsUser])
     startupRefresh.restart()
   }
 
@@ -389,7 +387,14 @@ Panel {
     id: startupRefresh
     interval: 100
     repeat: false
-    onTriggered: root.refreshNow()
+    onTriggered: {
+      // Panel.settings begins as {} and is injected by the bar after QML
+      // construction. Debounce both startup paths so the first host
+      // configuration uses the settled values rather than transient blanks.
+      Quickshell.execDetached([root.script("decision-window-host.sh"),
+        "ensure", root.tbHost, root.tbAsUser])
+      root.refreshNow()
+    }
   }
 
   FileView {
