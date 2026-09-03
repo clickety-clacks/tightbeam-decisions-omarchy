@@ -179,7 +179,15 @@ ShellRoot {
   FileView { id: settingsFile; path: root.settingsPath; atomicWrites: true; printErrors: false; onLoaded: root.loadSettings(text()) }
   Timer { id: saveSettings; interval: 200; onTriggered: root.flushSettings() }
   Timer { interval: 1000; running: true; repeat: true; onTriggered: root.reloadTheme() }
-  Timer { interval: 30000; running: true; repeat: true; onTriggered: root.refreshNow() }
+  // The menu process maintains the global count and notification feed. This
+  // host only needs polling while it owns a window, to detect that its DR was
+  // handled elsewhere and replace it with the handled-outcome notice.
+  Timer {
+    interval: 30000
+    running: root.detailWindows.length > 0
+    repeat: true
+    onTriggered: root.refreshNow()
+  }
   Process {
     id: fetchProcess
     stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.applyPayload(text) }
@@ -197,6 +205,9 @@ ShellRoot {
     function ping(): string { return "ok" }
     function palette(): string {
       return JSON.stringify({ background: String(Color.background), foreground: String(Color.foreground) })
+    }
+    function configuration(): string {
+      return JSON.stringify({ host: root.tbHost, asUser: root.tbAsUser })
     }
     function configure(host: string, asUser: string): string { root.configure(host, asUser); return "ok" }
     function openJson(payload: string, host: string, asUser: string): string {

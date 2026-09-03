@@ -10,6 +10,27 @@ host=${2:-}
 as_user=${3:-}
 payload=${4:-}
 log_dir=${XDG_STATE_HOME:-$HOME/.local/state}/omarchy-tightbeam-decisions
+
+# Omarchy creates a panel with its default empty settings before injecting the
+# saved bar-entry settings. Do not let that transient `ensure "" ""` switch a
+# persistent remote host into local mode. Resolve omitted values from the
+# installed widget entry; a genuinely local configuration has no saved host
+# and therefore remains blank.
+shell_settings=${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/shell.json
+if [[ -r "$shell_settings" && ( -z "$host" || -z "$as_user" ) ]]; then
+  saved_widget=$(jq -c '
+    first(.. | objects | select(.id? == "mike.tightbeam-decisions")) // {}
+  ' "$shell_settings" 2>/dev/null || printf '{}')
+  if [[ -z "$host" ]]; then
+    saved_host=$(jq -r '.host // empty' <<<"$saved_widget")
+    [[ -n "$saved_host" ]] && host=$saved_host
+  fi
+  if [[ -z "$as_user" ]]; then
+    saved_user=$(jq -r '.asUser // .user // empty' <<<"$saved_widget")
+    [[ -n "$saved_user" ]] && as_user=$saved_user
+  fi
+fi
+
 mkdir -p -- "$log_dir"
 exec 9>"$log_dir/window-host.lock"
 flock 9
