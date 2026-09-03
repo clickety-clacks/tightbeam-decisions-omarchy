@@ -95,6 +95,7 @@ Item {
   property bool waiting: false
   property bool steeringSupported: false
   property bool steeringPending: false
+  property bool restartPending: false
   property bool sessionLost: false
   property string statusText: ""
   property string decisionStatus: ""
@@ -270,7 +271,8 @@ Item {
     agent.running = true
   }
 
-  function stop() {
+  function stop(restart) {
+    restartPending = restart === true
     if (agent.running) agent.write(JSON.stringify({ type: "close" }) + "\n")
     agent.running = false
     bridgeReady = false
@@ -289,6 +291,15 @@ Item {
     keyboardCoast.stop()
     trackpadCoast.stop()
     messages.clear()
+  }
+
+  function resummarize() {
+    if (restartPending) return
+    if (agent.running) {
+      stop(true)
+    } else {
+      start()
+    }
   }
 
   function send(text) {
@@ -605,6 +616,11 @@ Item {
       root.bridgeReady = false
       root.steeringSupported = false
       root.steeringPending = false
+      if (root.restartPending) {
+        root.restartPending = false
+        Qt.callLater(root.start)
+        return
+      }
       if (!root.sessionLost && root.waiting) {
         root.waiting = false
         root.sessionLost = true
@@ -619,10 +635,52 @@ Item {
     anchors.fill: parent
     spacing: Style.space(10)
 
+    Item {
+      id: contentToolbar
+      width: parent.width
+      height: Style.space(30)
+
+      Rectangle {
+        id: resummarizeButton
+        anchors.top: parent.top
+        anchors.right: parent.right
+        width: resummarizeLabel.implicitWidth + Style.space(20)
+        height: parent.height
+        radius: height / 2
+        color: resummarizeHover.hovered
+          ? Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.14)
+          : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.07)
+        border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.22)
+        opacity: root.restartPending ? 0.55 : 1
+
+        Text {
+          id: resummarizeLabel
+          anchors.centerIn: parent
+          text: root.restartPending ? "Restarting…" : "󰑓  Re-summarize"
+          color: root.foreground
+          font.family: Style.font.family
+          font.pixelSize: root.captionSize
+        }
+
+        HoverHandler {
+          id: resummarizeHover
+          cursorShape: Qt.PointingHandCursor
+        }
+
+        TapHandler {
+          enabled: !root.restartPending
+          acceptedButtons: Qt.LeftButton
+          gesturePolicy: TapHandler.ReleaseWithinBounds
+          onTapped: root.resummarize()
+        }
+      }
+    }
+
     Flickable {
       id: log
       width: parent.width
-      height: parent.height - composer.height - choiceFlow.height - Style.space(20)
+      height: parent.height - contentToolbar.height - composer.height
+        - choiceFlow.height - Style.space(30)
       contentHeight: transcript.height
       clip: true
       interactive: contentHeight > height
