@@ -484,7 +484,8 @@ Item {
     log.cancelFlick()
     // Keep a line and a half of the preceding conversation peeking above the
     // prompt so its position in the transcript remains visually obvious.
-    submittedPromptY = Math.max(0, promptItem.y - root.humanMessageSize * 1.5)
+    submittedPromptY = Math.max(0, promptItem.y + promptItem.promptLeading
+      - root.humanMessageSize * 1.5)
     Qt.callLater(function() {
       promptRevealAnimation.from = log.contentY
       promptRevealAnimation.to = root.submittedPromptY
@@ -823,16 +824,19 @@ Item {
             required property string role
             required property string body
             readonly property bool human: role === "You"
+            readonly property real promptLeading: human
+              ? Math.round(root.humanMessageSize * 1.25) : 0
             width: transcript.width
-            height: body === "" ? 0 : entry.contentHeight
+            height: body === "" ? 0 : promptLeading + entry.contentHeight
 
             TextEdit {
               id: entry
+              y: parent.promptLeading
               width: parent.width
               height: contentHeight
               text: human ? body : root.spacedMarkdown(body)
               color: human ? root.accent : root.foreground
-              font.family: Style.font.family
+              font.family: human ? "serif" : Style.font.family
               font.pixelSize: human ? root.humanMessageSize : root.bodySize
               font.italic: human
               wrapMode: TextEdit.Wrap
