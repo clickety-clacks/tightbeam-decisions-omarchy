@@ -73,14 +73,25 @@ ShellRoot {
   function openMotionTuner() { motionTuner.open() }
   function configure(host, asUser) {
     reloadTheme()
-    var changed = tbHost !== String(host || "") || tbAsUser !== String(asUser || "")
-    tbHost = String(host || "")
+    var requestedHost = String(host || "")
+    // An empty IPC value is an uninitialized panel, never an instruction to
+    // change topology. The launcher uses `local` for an explicit local setup.
+    if (requestedHost === "") return
+    var resolvedHost = requestedHost === "local" ? "" : requestedHost
+    var changed = tbHost !== resolvedHost || tbAsUser !== String(asUser || "")
+    tbHost = resolvedHost
     tbAsUser = String(asUser || "")
+    if (changed) saveSettings.restart()
     if (changed || allRequests.length === 0) refreshNow()
   }
   function openRequestObject(request) {
     if (!request || !request.id) return false
-    var detail = detailFactory.createObject(root, { owner: root, request: request })
+    var detail = detailFactory.createObject(root, {
+      owner: root,
+      request: request,
+      tbHost: root.tbHost,
+      tbAsUser: root.tbAsUser
+    })
     if (!detail) return false
     detail.detailClosed.connect(root.removeDetailWindow)
     detailWindows = detailWindows.concat([detail])
@@ -137,6 +148,10 @@ ShellRoot {
       if (isFinite(Number(data.fontScale))) fontScale = Math.max(minFontScale, Math.min(maxFontScale, Number(data.fontScale)))
       if (isFinite(Number(data.keyboardLineImpulse))) keyboardLineImpulse = Number(data.keyboardLineImpulse)
       if (isFinite(Number(data.keyboardDeceleration))) keyboardDeceleration = Number(data.keyboardDeceleration)
+      if (data.topologyConfigured === true) {
+        tbHost = String(data.host || "")
+        tbAsUser = String(data.asUser || "")
+      }
     } catch (error) {}
   }
   function flushSettings() {
@@ -145,6 +160,9 @@ ShellRoot {
     data.fontScale = fontScale
     data.keyboardLineImpulse = keyboardLineImpulse
     data.keyboardDeceleration = keyboardDeceleration
+    data.topologyConfigured = true
+    data.host = tbHost
+    data.asUser = tbAsUser
     settingsFile.setText(JSON.stringify(data, null, 2) + "\n")
   }
   function reloadTheme() {

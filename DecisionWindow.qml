@@ -26,8 +26,11 @@ FloatingWindow {
   readonly property int bodySize: owner.bodySize
   readonly property int titleSize: owner.titleSize
   readonly property real fontScale: owner.fontScale
-  readonly property string tbHost: owner.tbHost
-  readonly property string tbAsUser: owner.tbAsUser
+  // Snapshot the topology supplied by the open request. Existing windows must
+  // not follow WindowHost's mutable defaults when another launcher configures
+  // where future requests should open.
+  required property string tbHost
+  required property string tbAsUser
   property string parentSummary: ""
   property string noteSummary: ""
   property string questionSummary: ""

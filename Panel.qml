@@ -262,12 +262,13 @@ Panel {
   }
   function flushKindSettings() {
     if (!kindsLoaded) return
-    kindSettingsFile.setText(JSON.stringify({
-      enabledKinds: enabledKinds,
-      fontScale: fontScale,
-      keyboardLineImpulse: keyboardLineImpulse,
-      keyboardDeceleration: keyboardDeceleration
-    }, null, 2) + "\n")
+    var data = {}
+    try { data = JSON.parse(kindSettingsFile.text() || "{}") } catch (error) { data = {} }
+    data.enabledKinds = enabledKinds
+    data.fontScale = fontScale
+    data.keyboardLineImpulse = keyboardLineImpulse
+    data.keyboardDeceleration = keyboardDeceleration
+    kindSettingsFile.setText(JSON.stringify(data, null, 2) + "\n")
   }
   function notifyNewRequests(added) {
     if (!added || added.length === 0) return

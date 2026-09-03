@@ -16,20 +16,37 @@ log_dir=${XDG_STATE_HOME:-$HOME/.local/state}/omarchy-tightbeam-decisions
 # persistent remote host into local mode. Resolve omitted values from the
 # installed widget entry; a genuinely local configuration has no saved host
 # and therefore remains blank.
-shell_settings=${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/shell.json
+plugin_settings=$HOME/.config/omarchy/tightbeam-decisions.json
+shell_settings=$HOME/.config/omarchy/shell.json
 if [[ -r "$shell_settings" && ( -z "$host" || -z "$as_user" ) ]]; then
-  saved_widget=$(jq -c '
+  saved_plugin='{}'
+  if [[ -r "$plugin_settings" ]]; then
+    saved_plugin=$(/usr/bin/jq -c '.' "$plugin_settings" 2>/dev/null || printf '{}')
+  fi
+  saved_widget=$(/usr/bin/jq -c '
     first(.. | objects | select(.id? == "mike.tightbeam-decisions")) // {}
   ' "$shell_settings" 2>/dev/null || printf '{}')
   if [[ -z "$host" ]]; then
-    saved_host=$(jq -r '.host // empty' <<<"$saved_widget")
-    [[ -n "$saved_host" ]] && host=$saved_host
+    if [[ $(/usr/bin/jq -r '.topologyConfigured // false' <<<"$saved_plugin") == true ]]; then
+      host=$(/usr/bin/jq -r '.host // ""' <<<"$saved_plugin")
+      [[ -n "$host" ]] || host=local
+    else
+      saved_host=$(/usr/bin/jq -r '.host // empty' <<<"$saved_widget")
+      host=${saved_host:-local}
+    fi
   fi
   if [[ -z "$as_user" ]]; then
-    saved_user=$(jq -r '.asUser // .user // empty' <<<"$saved_widget")
+    saved_user=$(/usr/bin/jq -r '.asUser // empty' <<<"$saved_plugin")
+    if [[ -z "$saved_user" ]]; then
+      saved_user=$(/usr/bin/jq -r '.asUser // .user // empty' <<<"$saved_widget")
+    fi
     [[ -n "$saved_user" ]] && as_user=$saved_user
   fi
 fi
+
+# Empty is a transient/uninitialized value at the IPC boundary. `local` is the
+# explicit marker for a genuinely local topology; WindowHost normalizes it.
+[[ -n "$host" ]] || host=local
 
 mkdir -p -- "$log_dir"
 exec 9>"$log_dir/window-host.lock"
