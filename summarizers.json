@@ -1,10 +1,10 @@
 {
   "main": {
-    "codex": { "model": "luna", "reasoningEffort": "xhigh" },
+    "codex": { "model": "gpt-5.6-luna", "reasoningEffort": "xhigh" },
     "claude": { "model": "opus" }
   },
   "parentNotes": {
-    "codex": { "model": "luna", "reasoningEffort": "xhigh" },
+    "codex": { "model": "gpt-5.6-luna", "reasoningEffort": "xhigh" },
     "claude": { "model": "opus" }
   }
 }

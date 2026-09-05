@@ -133,7 +133,7 @@ FloatingWindow {
 
   Process {
     id: summaryProcess
-    command: ["env", "HUGINN_INTERNAL=1", "node", root.script("summary-bridge.js")]
+    command: ["env", "HUGINN_INTERNAL=1", "node", root.script("bridge/bridge.js"), "--summary"]
     stdinEnabled: true
     stdout: SplitParser { onRead: function(line) { root.handleSummaryLine(line) } }
   }
@@ -842,6 +842,7 @@ FloatingWindow {
           rulingChoiceLabels: root.choiceLabels
           ruleAction: function(choiceLabel) { root.submitChoice(choiceLabel) }
           messageScript: root.script("message.sh")
+          onAssistantMessageFinished: root.requestActivate()
           onHeaderSummaryReady: function(summary) { root.questionSummary = summary }
           onFontStepRequested: function(step) { root.owner.adjustFontScale(step) }
           onFontResetRequested: root.owner.setFontScale(1)

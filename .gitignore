@@ -1,1 +1,3 @@
 *.bak.*
+
+bridge/node_modules/

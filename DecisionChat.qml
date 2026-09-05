@@ -44,15 +44,13 @@ Item {
   // otherwise hop over ssh. --as-user is only pinned when it was configured.
   readonly property string lookupCommand: (host === "" ? "tightbeam" : "ssh " + host + " tightbeam")
     + (user === "" ? "" : " --as-user " + user)
-  // The ACP bridge shipped with the Ask plugin: a standalone Node script
-  // speaking NDJSON over stdio. Reused as-is rather than vendored.
-  readonly property string bridgePath: Quickshell.env("HOME")
-    + "/.config/omarchy/plugins/mike.tightbeam-decisions/configured-chat-bridge.js"
+  // Owned by this plugin; the bridge reads role/model configuration itself.
+  readonly property string bridgePath: Qt.resolvedUrl("bridge/bridge.js").toString().replace(/^file:\/\//, "")
+  function bridgeCommand() {
+    return ["env", "HUGINN_INTERNAL=1", "node", bridgePath]
+  }
 
-  // The bridge ships with the Ask plugin, in a different repo, so it can
-  // disappear without anything here changing. Detect that rather than letting
-  // the process just exit -- the generic "session ended" message would send
-  // you looking in the wrong place entirely.
+  // Report an incomplete decision-request installation explicitly.
   property bool bridgeMissing: false
 
   FileView {
@@ -62,8 +60,10 @@ Item {
     onLoadFailed: root.bridgeMissing = true
   }
 
+
   signal ruleRequested(string choiceLabel)
   signal headerSummaryReady(string summary)
+  signal assistantMessageFinished()
   // DecisionWindow supplies this callback so ruling buttons can invoke the
   // recorder directly. Keep the signal as a fallback for embedders that do
   // not provide one.
@@ -482,10 +482,10 @@ Item {
     trackpadCoast.stop()
     promptRevealAnimation.stop()
     log.cancelFlick()
-    // Keep a line and a half of the preceding conversation peeking above the
+    // Keep two and a half lines of the preceding conversation peeking above the
     // prompt so its position in the transcript remains visually obvious.
     submittedPromptY = Math.max(0, promptItem.y + promptItem.promptLeading
-      - root.humanMessageSize * 1.5)
+      - root.humanMessageSize * 2.5)
     Qt.callLater(function() {
       promptRevealAnimation.from = log.contentY
       promptRevealAnimation.to = root.submittedPromptY
@@ -575,6 +575,7 @@ Item {
         if (submittedPromptIndex < 0) publishHeaderSummary()
         harvestBlocks()
         activeReplyMessageId = ""
+        assistantMessageFinished()
       } else if (event.type === "steered") {
         steeringPending = false
         statusText = "Thinking…"
@@ -610,7 +611,7 @@ Item {
 
   Process {
     id: agent
-    command: ["env", "HUGINN_INTERNAL=1", "node", root.bridgePath]
+    command: root.bridgeCommand()
     stdinEnabled: true
     stdout: SplitParser { onRead: function(line) { root.handleLine(line) } }
     onExited: {
@@ -626,7 +627,7 @@ Item {
         root.waiting = false
         root.sessionLost = true
         root.statusText = root.bridgeMissing
-          ? "Chat needs the Ask plugin: its ACP bridge is missing at " + root.bridgePath
+          ? "The decision-request ACP bridge is missing at " + root.bridgePath
           : "ACP session ended · reopen to retry"
       }
     }

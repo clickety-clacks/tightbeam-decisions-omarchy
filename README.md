@@ -46,11 +46,27 @@ ssh -o BatchMode=yes <host> tightbeam decision-requests --status open
 Your `~/.ssh/config` is honoured, so a jump host, a non-default port or a
 per-host key belong there rather than in this widget.
 
-**Chat (optional):** the explain-and-discuss pane runs on the ACP bridge
-shipped with the [Ask](https://github.com/clickety-clacks/omarchy-ask) plugin,
-at `~/.config/omarchy/plugins/clickety-clacks.ask/bridge/bridge.js`. Listing
-and ruling work without it; only the chat needs it, and it says so plainly if
-the bridge is absent.
+**Agent integration:** this package owns its ACP bridge and installs pinned ACP
+adapters locally. It uses the system-installed `codex` or `claude` executable;
+install and authenticate that harness separately. Ask is not required.
+
+From this plugin directory run `npm ci --prefix bridge --ignore-scripts --omit=optional`.
+The adapter's transitive Codex package is not used: execution is explicitly
+directed to the system executable. No system harness is installed or upgraded
+by this step.
+
+`summarizers.json` configures `main` and `parentNotes` models and reasoning
+effort separately. Use full model IDs (for example `gpt-5.6-luna`).
+The optional top-level `provider` selects `codex` or `claude`; otherwise
+Omarchy's `~/.config/omarchy/defaults/agent` is used. A `DR_AGENT` environment
+override is also supported. Ask settings and `ASK_*` variables are ignored.
+The main chat uses permission prompts by default. Its own permission settings
+are stored in `~/.config/omarchy/tightbeam-decisions-agent.json`.
+The parent/notes/choice summarizer denies tool permission requests.
+
+Develop in a separate checkout. Installing QML under the live plugin directory
+can reload the window host and close open windows; arrange installation with
+the user first.
 
 ## Settings
 
