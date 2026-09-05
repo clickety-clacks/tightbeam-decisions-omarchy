@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
@@ -842,7 +843,11 @@ FloatingWindow {
           rulingChoiceLabels: root.choiceLabels
           ruleAction: function(choiceLabel) { root.submitChoice(choiceLabel) }
           messageScript: root.script("message.sh")
-          onAssistantMessageFinished: root.requestActivate()
+          onAssistantMessageFinished: {
+            var nativeWindow = root.contentItem.Window.window
+            if (root.visible && nativeWindow && !nativeWindow.active)
+              nativeWindow.requestActivate()
+          }
           onHeaderSummaryReady: function(summary) { root.questionSummary = summary }
           onFontStepRequested: function(step) { root.owner.adjustFontScale(step) }
           onFontResetRequested: root.owner.setFontScale(1)
