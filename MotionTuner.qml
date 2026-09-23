@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import Quickshell
 import Quickshell.Wayland
 import qs.Commons
@@ -14,7 +15,10 @@ PanelWindow {
     ? WlrKeyboardFocus.OnDemand
     : WlrKeyboardFocus.None
   exclusionMode: ExclusionMode.Ignore
-  mask: Region { item: tunerCard }
+  mask: Region {
+    item: tunerCard
+    Region { item: closeButton }
+  }
 
   property real impulse: 335
   property real deceleration: 608
@@ -25,6 +29,7 @@ PanelWindow {
 
   function open() {
     visible = true
+    agentSettings.reload()
     curve.requestPaint()
   }
 
@@ -42,24 +47,31 @@ PanelWindow {
   Rectangle {
     id: tunerCard
     width: Math.min(Style.space(560), parent.width - Style.gapsOut * 2)
-    height: Math.min(Style.space(500), parent.height - Style.gapsOut * 2)
+    height: Math.min(Style.space(850), parent.height - Style.gapsOut * 2)
     readonly property real companionGap: Style.space(18)
     readonly property real askHalfWidth: Style.space(270)
-    x: Math.min(parent.width - width - Style.gapsOut,
+    x: Math.min(parent.width - width - Math.max(Style.gapsOut, Style.space(20)),
       parent.width / 2 + askHalfWidth + companionGap)
-    y: Math.max(Style.gapsOut, Math.round((parent.height - height) * 0.38))
+    y: Math.max(Style.gapsOut, Style.space(20), Math.round((parent.height - height) * 0.38))
     color: Color.menu.background
     border.color: Color.menu.border
     border.width: Math.max(1, Style.space(2))
     radius: Style.cornerRadius
 
-    Item {
+    Flickable {
       anchors.fill: parent
       anchors.margins: Style.space(28)
+      clip: true
+      contentHeight: settingsColumn.implicitHeight
+      boundsBehavior: Flickable.StopAtBounds
 
       Column {
-        anchors.fill: parent
+        id: settingsColumn
+        width: parent.width
         spacing: Style.space(14)
+
+      ModelSettings { id: agentSettings; width: parent.width }
+      Rectangle { width: parent.width; height: 1; color: Color.menu.border }
 
       Text {
         width: parent.width
@@ -82,7 +94,7 @@ PanelWindow {
       Rectangle {
         id: graph
         width: parent.width
-        height: Math.max(Style.space(250), parent.height - Style.space(160))
+        height: Style.space(250)
         color: Qt.rgba(Color.menu.text.r, Color.menu.text.g, Color.menu.text.b, 0.035)
         border.color: Qt.rgba(Color.menu.text.r, Color.menu.text.g, Color.menu.text.b, 0.14)
         border.width: 1
@@ -227,6 +239,39 @@ PanelWindow {
           }
         }
       }
+    }
+    Button {
+      id: closeButton
+      objectName: "closeSettings"
+      anchors.top: parent.top
+      anchors.right: parent.right
+      anchors.topMargin: -height / 2
+      anchors.rightMargin: -width / 2
+      width: Style.space(32)
+      height: width
+      padding: 0
+      z: 10
+      Accessible.name: "Close settings"
+      background: Rectangle {
+        radius: width / 2
+        color: closeButton.hovered ? Color.accent : Color.menu.background
+        border.color: Color.menu.text
+        border.width: Math.max(1, Style.space(2))
+      }
+      contentItem: Item {
+        Repeater {
+          model: [45, -45]
+          Rectangle {
+            required property real modelData
+            anchors.centerIn: parent
+            width: Style.space(14)
+            height: Style.space(2)
+            rotation: modelData
+            color: closeButton.hovered ? Color.menu.background : Color.menu.text
+          }
+        }
+      }
+      onClicked: root.visible = false
     }
   }
 }

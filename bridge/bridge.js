@@ -8,6 +8,7 @@ import { dirname, join } from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolveHarness, resolveExecutable } from "./harness-policy.js";
 import { explainHarnessError, needsNewSession } from "./harness-errors.js";
+import { effectiveSelection } from "./model-settings.js";
 import {
   ClientSideConnection,
   PROTOCOL_VERSION,
@@ -30,8 +31,16 @@ try {
   emit({ type: "fatal", message: "Could not read summarizers.json: " + error.message });
   process.exit(1);
 }
-const agentName = startupValue(() => resolveHarness({ ...process.env, DR_AGENT: agentConfig.provider || process.env.DR_AGENT }));
-const choice = agentConfig[role]?.[agentName] || {};
+let sharedSelection = {};
+try {
+  sharedSelection = JSON.parse(await readFile(process.env.DR_MODEL_SETTINGS_PATH || join(process.env.HOME, ".config/omarchy/tightbeam-decisions-model.json"), "utf8"));
+} catch (error) {
+  if (error.code !== "ENOENT") throw error;
+}
+const choice = startupValue(() => effectiveSelection(
+  process.env.DR_TEST_PROVIDER ? { provider: process.env.DR_TEST_PROVIDER, model: process.env.DR_TEST_MODEL || "", reasoningEffort: process.env.DR_TEST_EFFORT || "" } : sharedSelection,
+  agentConfig, role));
+const agentName = choice.provider;
 process.env.DR_MODEL = String(choice.model || "");
 process.env.DR_REASONING_EFFORT = String(choice.reasoningEffort || "");
 const bundledAgentBinary = join(
@@ -59,17 +68,18 @@ const cwd = process.env.DR_CWD || process.env.HOME || process.cwd();
 const settingsDir = join(process.env.HOME || process.cwd(), ".config", "omarchy");
 const settingsPath = join(settingsDir, "tightbeam-decisions-agent.json");
 
-let permissionMode = "permission";
+// Decision Request always authorizes harness tool requests (all roles/providers).
+let permissionMode = "yolo";
 
 async function loadSettings() {
   try {
     const settings = JSON.parse(await readFile(settingsPath, "utf8"));
-    permissionMode = settings.permissionMode === "yolo" ? "yolo" : "permission";
+    permissionMode = "yolo";
   } catch {}
 }
 
 async function savePermissionMode(mode) {
-  const nextMode = mode === "yolo" ? "yolo" : "permission";
+  const nextMode = "yolo";
   await mkdir(settingsDir, { recursive: true });
   // The UI writes its own keys (font scale) to this file. Merge rather than
   // replace so toggling the mode cannot drop them.
@@ -209,7 +219,6 @@ const client = {
   },
 
   requestPermission(params) {
-    if (role === "parentNotes") return Promise.resolve({ outcome: { outcome: "cancelled" } });
     const requestId = `permission-${++permissionSequence}`;
     const title = params.toolCall?.title || params.toolCall?.name || "Use a tool";
     const options = (params.options || []).map((option) => ({
@@ -218,7 +227,8 @@ const client = {
       kind: option.kind,
     }));
     if (permissionMode === "yolo") {
-      const option = options.find((item) => item.kind === "allow_once");
+      const option = options.find((item) => item.kind === "allow_once")
+        || options.find((item) => item.kind === "allow_always");
       if (option) {
         emit({ type: "status", text: `YOLO · ${title}` });
         return Promise.resolve({ outcome: { outcome: "selected", optionId: option.id } });

@@ -3,6 +3,7 @@ import QtQuick.Controls
 import Quickshell
 import Quickshell.Io
 import qs.Commons
+import "kinds.js" as Kinds
 import qs.Ui
 
 Panel {
@@ -233,12 +234,13 @@ Panel {
   }
   function rowTitle(request) {
     var subject = String(request && request.subject ? request.subject : "").replace(/\s+/g, " ").trim()
-    return subject !== "" ? subject : String(request && request.question ? request.question : "Decision request")
+    var title = subject !== "" ? subject : String(request && request.question ? request.question : "Decision request")
+    return Kinds.info(request && request.kind).icon + "  " + title
   }
   function rowMeta(request) {
     if (!request || request.kind !== "effort") return ""
     var age = effortAge(request)
-    return "No response" + (age === "" ? "" : " · " + age + " since check-in")
+    return "Automatic check-in · nothing produced" + (age === "" ? "" : " in " + age)
   }
   function loadKindSettings(raw) {
     var data = {}
@@ -451,25 +453,18 @@ Panel {
     }
   }
 
-  WidgetButton {
+  DecisionMenuIndicator {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: "󰗑  " + (root.fetchedOnce ? root.allRequests.length : "…")
-    labelVisible: true
+    countText: root.fetchedOnce ? String(root.allRequests.length) : "…"
+    hasNew: root.hasNew
     horizontalMargin: 12
     verticalPadding: 8.75
     tooltipText: root.refreshing
       ? "Refreshing Tightbeam…"
       : root.allRequests.length + " decision request" + (root.allRequests.length === 1 ? "" : "s") + " on " + root.hostName
     onPressed: function(buttonCode) { if (buttonCode === Qt.MiddleButton) root.refreshNow(); else root.toggle() }
-    Rectangle {
-      visible: root.hasNew
-      width: 8; height: 8; radius: 4
-      color: root.urgent
-      anchors.top: parent.top; anchors.right: parent.right
-      anchors.topMargin: 3; anchors.rightMargin: 3
-    }
   }
 
   KeyboardPanel {
@@ -519,7 +514,7 @@ Panel {
           meta: "Tightbeam · " + root.hostName + (root.refreshing ? " · refreshing…" : "")
           foreground: root.foreground
           fontFamily: root.fontFamily
-          iconComponent: Component { Text { text: "󰗑"; color: root.foreground; font.family: root.fontFamily; font.pixelSize: root.displaySize } }
+          iconComponent: Component { FlagIcon { size: root.displaySize; color: root.foreground } }
           trailingControl: Component {
             Button {
               iconText: "󰑐"
@@ -549,8 +544,8 @@ Panel {
             delegate: Button {
               required property var modelData
               readonly property bool on: root.kindEnabled(modelData)
-              text: (on ? "☑  " : "☐  ") + modelData + " " + root.countForKind(modelData)
-              tooltipText: (on ? "Hide" : "Show") + " " + modelData + " decision requests"
+              text: (on ? "☑  " : "☐  ") + Kinds.info(modelData).icon + "  " + Kinds.info(modelData).label + " " + root.countForKind(modelData)
+              tooltipText: (on ? "Hide " : "Show ") + Kinds.info(modelData).label.toLowerCase() + ": " + Kinds.info(modelData).hint
               foreground: on ? root.foreground : root.dim
               fontFamily: root.fontFamily
               bordered: true

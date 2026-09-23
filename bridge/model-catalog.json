@@ -1,0 +1,17 @@
+{
+  "codex": [
+    { "id": "gpt-6-astra", "label": "Astra 6" },
+    { "id": "gpt-5.6-sol", "label": "Sol 5.6" },
+    { "id": "gpt-5.6-terra", "label": "Terra 5.6" },
+    { "id": "gpt-5.6-luna", "label": "Luna 5.6" },
+    { "id": "gpt-5.5", "label": "GPT 5.5" },
+    { "id": "gpt-5.3-codex-spark", "label": "Codex Spark 5.3" }
+  ],
+  "claude": [
+    { "id": "claude-fable-5-1", "label": "Fable 5.1" },
+    { "id": "claude-fable-5-1[1m]", "label": "Fable 5.1 (1M)" },
+    { "id": "opus[1m]", "label": "Opus (1M)" },
+    { "id": "sonnet", "label": "Sonnet" },
+    { "id": "haiku", "label": "Haiku" }
+  ]
+}

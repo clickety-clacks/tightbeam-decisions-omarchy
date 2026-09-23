@@ -1,0 +1,32 @@
+[
+  {
+    "provider": "claude",
+    "model": "claude-fable-5-1",
+    "ok": true,
+    "text": "MODEL_OK"
+  },
+  {
+    "provider": "claude",
+    "model": "claude-fable-5-1[1m]",
+    "ok": true,
+    "text": "MODEL_OK"
+  },
+  {
+    "provider": "claude",
+    "model": "opus[1m]",
+    "ok": true,
+    "text": "MODEL_OK"
+  },
+  {
+    "provider": "claude",
+    "model": "sonnet",
+    "ok": true,
+    "text": "MODEL_OK"
+  },
+  {
+    "provider": "claude",
+    "model": "haiku",
+    "ok": true,
+    "text": "MODEL_OK"
+  }
+]

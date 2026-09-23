@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Io
 import qs.Commons
 import qs.Ui
+import "kinds.js" as Kinds
 
 FloatingWindow {
     id: root
@@ -756,7 +757,7 @@ FloatingWindow {
             }
             IdPill {
               id: decisionIdPill
-              label: "decision request"
+              label: root.request ? Kinds.info(root.request.kind).icon + "  " + Kinds.info(root.request.kind).singular : "decision request"
               value: root.request ? String(root.request.id || "") : ""
             }
             IdPill {

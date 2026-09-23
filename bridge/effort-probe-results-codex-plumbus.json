@@ -1,0 +1,44 @@
+[
+  {
+    "provider": "codex",
+    "model": "gpt-5.6-luna",
+    "ok": true,
+    "text": "MODEL_OK",
+    "reasoningEffort": "low"
+  },
+  {
+    "provider": "codex",
+    "model": "gpt-5.6-luna",
+    "ok": true,
+    "text": "MODEL_OK",
+    "reasoningEffort": "medium"
+  },
+  {
+    "provider": "codex",
+    "model": "gpt-5.6-luna",
+    "ok": true,
+    "text": "MODEL_OK",
+    "reasoningEffort": "high"
+  },
+  {
+    "provider": "codex",
+    "model": "gpt-5.6-luna",
+    "ok": true,
+    "text": "MODEL_OK",
+    "reasoningEffort": "xhigh"
+  },
+  {
+    "provider": "codex",
+    "model": "gpt-5.6-luna",
+    "ok": true,
+    "text": "MODEL_OK",
+    "reasoningEffort": "max"
+  },
+  {
+    "provider": "codex",
+    "model": "gpt-5.6-sol",
+    "ok": true,
+    "text": "MODEL_OK",
+    "reasoningEffort": "ultra"
+  }
+]

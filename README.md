@@ -70,6 +70,36 @@ the user first.
 
 ## Settings
 
+### Agent settings (Ctrl+,)
+
+The existing scroll-motion screen now also auto-saves the selected harness/model atomically to
+`~/.config/omarchy/tightbeam-decisions-model.json`. This shared override applies
+to both summarizer roles when a bridge starts. Every menu rereads it on open;
+existing conversations are preserved until explicitly re-summarized.
+Tools always auto-approve (YOLO). The older permission-mode description above
+is superseded by this policy.
+
+No additional window-manager binding or separate settings menu is needed.
+Thinking level also auto-saves for both summarizers; Codex choices are filtered
+to levels supported by the selected model. Model default leaves the harness default
+unchanged. The Close button stays visible above the scrolling settings content.
+QML installation can reload open DR windows: obtain approval before installing.
+
+The model catalog uses the installed adapters' identifiers. `bridge/probe-models.js`
+exercises real ACP selection and a minimal generation. All six Codex entries
+passed on Plumbus with system Codex 0.154.0 on September 13; results are in
+`bridge/model-probe-results-codex-plumbus.json`. All five Claude entries passed
+on osanwe with system Claude Code 2.1.280 on September 23; results are in
+`bridge/model-probe-results-claude-osanwe.json`. Earlier failed Plumbus probes,
+from when Claude was not logged in there, are preserved in
+`bridge/model-probe-results-plumbus.json`.
+
+Claude aliases such as `opus[1m]` follow the installed Claude Code release. The
+picker asks the harness which version each alias names (no prompt is sent) and
+shows it, e.g. "Opus 5.5 (1M)". The answer is cached per Claude Code version in
+`~/.local/state/omarchy-tightbeam-decisions/claude-model-versions.json`; if the
+lookup fails, the catalog label is shown instead.
+
 | Key | Default | Meaning |
 |---|---|---|
 | `host` | blank | Where Tightbeam runs. See Topologies. |
@@ -84,6 +114,15 @@ The older `user` key is still read as a fallback for `asUser`, so an existing
 Each decision-request kind the org is currently raising gets an on/off button.
 The buttons are built from what the org raises, not from what is visible, so
 switching a kind off never removes the control that switches it back on.
+
+Kinds are shown by what they ask of you, with the same icon on the toggle, on
+each row, and on the decision window:
+
+| Kind | Shown as | Meaning |
+|---|---|---|
+| `operator` | 󱜸 Agent questions | An agent is asking you to choose |
+| `effort` | 󰗶 Substrate issues | Tightbeam flagged an agent that was prodded and produced nothing |
+| anything else | 󰋗 its raw name | A kind this plugin does not know yet |
 
 Choices persist to `~/.config/omarchy/tightbeam-decisions.json`. `effort` is
 off by default; every other kind, including one introduced after this was
@@ -123,7 +162,11 @@ machine-specific: it opens the local plugin configured for Gibson as Mike.
 
 | File | Role |
 |---|---|
-| `Panel.qml` | Bar widget, request list, kind toggles |
+| `DecisionMenu.qml` | Bar dropdown: request list, kind toggles |
+| `DecisionMenuIndicator.qml` | Bar button: flag mark and open-request count |
+| `FlagIcon.qml` | The flag mark, drawn as vector paths in any color |
+| `kinds.js` | Icon, label and description for each decision-request kind |
+| `ModelSettings.qml` | Harness, model and thinking-level picker |
 | `WindowHost.qml` | Independent process that owns decision windows and polls their status |
 | `decision-window-host.sh` | Starts the window host and forwards open requests over IPC |
 | `DecisionWindow.qml` | Standalone decision detail window |

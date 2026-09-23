@@ -1,0 +1,38 @@
+[
+  {
+    "provider": "codex",
+    "model": "gpt-6-astra",
+    "ok": true,
+    "text": "MODEL_OK"
+  },
+  {
+    "provider": "codex",
+    "model": "gpt-5.6-sol",
+    "ok": true,
+    "text": "MODEL_OK"
+  },
+  {
+    "provider": "codex",
+    "model": "gpt-5.6-terra",
+    "ok": true,
+    "text": "MODEL_OK"
+  },
+  {
+    "provider": "codex",
+    "model": "gpt-5.6-luna",
+    "ok": true,
+    "text": "MODEL_OK"
+  },
+  {
+    "provider": "codex",
+    "model": "gpt-5.5",
+    "ok": true,
+    "text": "MODEL_OK"
+  },
+  {
+    "provider": "codex",
+    "model": "gpt-5.3-codex-spark",
+    "ok": true,
+    "text": "MODEL_OK"
+  }
+]

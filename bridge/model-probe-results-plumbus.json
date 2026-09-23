@@ -1,0 +1,68 @@
+[
+  {
+    "provider": "codex",
+    "model": "gpt-6-astra",
+    "ok": false,
+    "text": "Warning: Model metadata for `gpt-6-astra` not found. Defaulting to fallback metadata; this can degrade performance and cause issues.\n\n{\"type\":\"error\",\"status\":400,\"error\":{\"type\":\"invalid_request_error\",\"message\":\"The 'gpt-6-astra' model requires a newer version of Codex. Please upgrade to the latest app or CLI and try again.\"}}\n\n"
+  },
+  {
+    "provider": "codex",
+    "model": "gpt-5.6-sol",
+    "ok": true,
+    "text": "MODEL_OK"
+  },
+  {
+    "provider": "codex",
+    "model": "gpt-5.6-terra",
+    "ok": true,
+    "text": "MODEL_OK"
+  },
+  {
+    "provider": "codex",
+    "model": "gpt-5.6-luna",
+    "ok": true,
+    "text": "MODEL_OK"
+  },
+  {
+    "provider": "codex",
+    "model": "gpt-5.5",
+    "ok": true,
+    "text": "MODEL_OK"
+  },
+  {
+    "provider": "codex",
+    "model": "gpt-5.3-codex-spark",
+    "ok": true,
+    "text": "MODEL_OK"
+  },
+  {
+    "provider": "claude",
+    "model": "claude-fable-5-1",
+    "ok": false,
+    "error": "Internal error"
+  },
+  {
+    "provider": "claude",
+    "model": "claude-fable-5-1[1m]",
+    "ok": false,
+    "error": "Internal error"
+  },
+  {
+    "provider": "claude",
+    "model": "opus[1m]",
+    "ok": false,
+    "error": "Claude Code needs a login. Open the system claude harness and sign in, then start a new session in the decision-request window."
+  },
+  {
+    "provider": "claude",
+    "model": "sonnet",
+    "ok": false,
+    "error": "Claude Code needs a login. Open the system claude harness and sign in, then start a new session in the decision-request window."
+  },
+  {
+    "provider": "claude",
+    "model": "haiku",
+    "ok": false,
+    "error": "Claude Code needs a login. Open the system claude harness and sign in, then start a new session in the decision-request window."
+  }
+]
