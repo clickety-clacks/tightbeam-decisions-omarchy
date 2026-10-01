@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Decision window, short</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.label{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.12em;color:#5F5B52}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;align-items:center;width:100%;height:46px;padding:0 10px;border:1px solid transparent;border-top-color:#DCD6C8;background:transparent;color:#1C1A16;font-family:'IBM Plex Sans',sans-serif;text-align:left}
+.row b{display:block;font-size:14px;font-weight:600;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row i{display:block;font-style:normal;font-size:12px;line-height:1.35;color:#5F5B52;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.key{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid #BDB6A6;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5F5B52}
+.id{display:inline-flex;align-items:center;gap:6px;padding:0;border:0;background:transparent;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5F5B52;white-space:nowrap}
+.id em{font-style:normal;color:#8A857A}
+</style>
+</head>
+<body>
+<div style="width: 780px; height: 420px; box-sizing: border-box; display: flex; flex-direction: column; background: #F6F3EA; color: #1C1A16; font-family: 'IBM Plex Sans', sans-serif; overflow: hidden">
+
+  <header style="flex-shrink: 0; padding: 14px 24px 12px; border-bottom: 1px solid #DCD6C8; display: flex; flex-direction: column; gap: 6px">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <span style="width: 8px; height: 8px; border-radius: 4px; background: #C2362D"></span>
+      <span class="label" style="color: #1C1A16">SURF ACE</span>
+      <span class="label">· SUBSTRATE CHECK · 11:58 AM</span>
+    </div>
+    <h1 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-size: 21px; font-weight: 400; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">The agent planning Surf Ace’s annotation events went quiet after a prod. Keep waiting, or step in?</h1>
+  </header>
+
+  <div style="flex-grow: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 300px">
+    <div style="min-width: 0; display: flex; flex-direction: column; border-right: 1px solid #DCD6C8">
+      <main style="flex-grow: 1; min-height: 0; overflow: hidden; padding: 14px 24px 0; display: flex; flex-direction: column; gap: 6px">
+        <div class="label">BRIEF</div>
+        <p style="margin: 0; font-size: 14px; line-height: 1.55">This is an automatic check, not a question from the agent. Tightbeam prodded it 15 minutes ago and it wrote nothing back: no files, notes or updates. The plan it holds is parked until Surf Ace v0.2.4 ships, so silence is what parked work looks like.</p>
+      </main>
+      <label style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 24px; border-top: 1px solid #DCD6C8">
+        <span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Ask about this request</span>
+        <input type="text" placeholder="Ask about this request…" style="flex-grow: 1; min-width: 0; border: 0; background: transparent; font-family: 'Newsreader', Georgia, serif; font-style: italic; font-size: 16px; color: #1C1A16; outline: none">
+        <span class="key" style="width: auto; padding: 0 6px">/</span>
+      </label>
+    </div>
+    <section aria-label="Decide" style="min-height: 0; overflow: hidden; background: #EDE9DD; padding: 8px 10px 0; display: flex; flex-direction: column">
+      <button class="row" style="border-color: #1C1A16; border-radius: 4px; background: #F6F3EA"><span style="min-width: 0"><b>Let it continue</b><i>Keep waiting; nobody is prodded again.</i></span><span class="key">1</span></button>
+      <button class="row"><span style="min-width: 0"><b>Prod it again</b><i>Sends another wake to the same agent.</i></span><span class="key">2</span></button>
+      <button class="row"><span style="min-width: 0"><b>Dismiss the alert</b><i>Closes this check; the agent is not told.</i></span><span class="key">3</span></button>
+      <button class="row"><span style="min-width: 0"><b>Take the assignment away</b><i>The agent stops; the plan goes back to the queue.</i></span><span class="key">4</span></button>
+      <button class="row"><span style="min-width: 0"><b>Hand it to another agent</b><i>Dispatches the plan to a new holder.</i></span><span class="key">5</span></button>
+      <button class="row"><span style="min-width: 0"><b>Retire the plan</b><i>Ends the work item for good.</i></span><span class="key">6</span></button>
+    </section>
+  </div>
+
+  <footer style="flex-shrink: 0; display: flex; align-items: center; gap: 16px; height: 30px; padding: 0 24px; border-top: 1px solid #DCD6C8; overflow: hidden">
+    <button class="id"><em>plan</em> Surf Ace annotation events ↗</button>
+    <button class="id"><em>request</em> dr_f0f15c0c</button>
+    <button class="id"><em>assignment</em> asg_61c748b8</button>
+    <button class="id"><em>work item</em> wi_d48b0a43</button>
+  </footer>
+</div>
+</body>
+</html>

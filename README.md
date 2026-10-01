@@ -199,7 +199,7 @@ machine-specific: it opens the local plugin configured for Gibson as Mike.
 | `ModelSettings.qml` | Harness, model and thinking-level picker |
 | `WindowHost.qml` | Independent process that owns decision windows and polls their status |
 | `decision-window-host.sh` | Starts the window host and forwards open requests over IPC |
-| `DecisionWindow.qml` | Standalone decision detail window |
+| `DecisionWindow.qml` | Standalone decision detail window (design: `docs/decision-window/SPEC.md`) |
 | `MotionTuner.qml` | Settings window (Ctrl+,): agent settings and scroll motion |
 | `bridge/compositor.js` | Hyprland and Scottland backends: find and present a window |
 | `bridge/present-window.js` | Presents one of the window host's own windows by title |

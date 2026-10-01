@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Decision window, narrow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.label{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.12em;color:#5F5B52}
+.key{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border:1px solid #BDB6A6;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5F5B52;background:#F6F3EA}
+.chip{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 10px 0 4px;border:1px solid transparent;border-radius:4px;background:transparent;color:#1C1A16;font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:600;white-space:nowrap}
+.id{display:inline-flex;align-items:center;gap:6px;padding:0;border:0;background:transparent;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5F5B52;white-space:nowrap}
+.id em{font-style:normal;color:#8A857A}
+</style>
+</head>
+<body>
+<div style="width: 440px; height: 760px; box-sizing: border-box; display: flex; flex-direction: column; background: #F6F3EA; color: #1C1A16; font-family: 'IBM Plex Sans', sans-serif; overflow: hidden">
+
+  <header style="flex-shrink: 0; padding: 18px 20px 14px; border-bottom: 1px solid #DCD6C8; display: flex; flex-direction: column; gap: 8px">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <span style="width: 8px; height: 8px; border-radius: 4px; background: #C2362D"></span>
+      <span class="label" style="color: #1C1A16">SURF ACE</span>
+      <span class="label">· 11:58 AM</span>
+    </div>
+    <h1 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-size: 22px; font-weight: 400; line-height: 1.27">The agent planning Surf Ace’s annotation events went quiet after a prod. Keep waiting, or step in?</h1>
+  </header>
+
+  <main style="flex-grow: 1; min-height: 0; overflow: hidden; padding: 16px 20px 0; display: flex; flex-direction: column; gap: 10px">
+    <div class="label" style="color: #8A857A">SCROLLED: CHOICES ARE ABOVE, DOCKED BELOW</div>
+    <p style="margin: 0; font-size: 14px; line-height: 1.6; color: #5F5B52">…Take the assignment away stops the agent; Hand it to another agent dispatches the plan; Retire ends the work item.</p>
+    <p style="margin: 6px 0 0; font-family: 'Newsreader', Georgia, serif; font-style: italic; font-size: 18px; color: #C2362D">Why does it keep flagging parked work?</p>
+    <p style="margin: 0; font-size: 14px; line-height: 1.6">The check treats any assignment with no output since it was armed as stalled. Parked plans produce no output by design, so they trip it every time.</p>
+    <p style="margin: 0; font-size: 14px; line-height: 1.6">A parked state that the check skips would end these alerts. Until then, continue is the ruling that leaves things as they are.</p>
+  </main>
+
+  <label style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; height: 42px; padding: 0 20px; border-top: 1px solid #DCD6C8">
+    <span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Ask about this request</span>
+    <input type="text" placeholder="Ask about this request…" style="flex-grow: 1; min-width: 0; border: 0; background: transparent; font-family: 'Newsreader', Georgia, serif; font-style: italic; font-size: 16px; color: #1C1A16; outline: none">
+    <span class="key" style="width: auto; padding: 0 6px">/</span>
+  </label>
+
+  <section aria-label="Decide" style="flex-shrink: 0; background: #EDE9DD; border-top: 1px solid #DCD6C8; padding: 10px 16px 12px; display: flex; flex-direction: column; gap: 6px">
+    <div style="display: flex; align-items: baseline; justify-content: space-between">
+      <span class="label" style="color: #1C1A16">DECIDE</span>
+      <button style="border: 0; background: transparent; padding: 0; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5F5B52">explain choices ↑</button>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 8px">
+      <button class="chip" style="border-color: #1C1A16; background: #F6F3EA"><span class="key">1</span>Let it continue</button>
+      <button class="chip"><span class="key">2</span>Prod it again</button>
+      <button class="chip"><span class="key">3</span>Dismiss the alert</button>
+      <button class="chip"><span class="key">4</span>Take it away</button>
+      <button class="chip"><span class="key">5</span>Hand it off</button>
+      <button class="chip"><span class="key">6</span>Retire the plan</button>
+    </div>
+  </section>
+
+  <footer style="flex-shrink: 0; display: flex; align-items: center; gap: 14px; height: 30px; padding: 0 20px; border-top: 1px solid #DCD6C8; overflow: hidden">
+    <button class="id"><em>req</em> dr_f0f15c0c</button>
+    <button class="id"><em>asg</em> asg_61c748b8</button>
+    <button class="id"><em>wi</em> wi_d48b…</button>
+  </footer>
+</div>
+</body>
+</html>

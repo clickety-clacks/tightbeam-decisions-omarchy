@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Decision window, minimum size</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=IBM+Plex+Sans:wght@400;500;600&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.label{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.12em;color:#5F5B52}
+.key{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border:1px solid #BDB6A6;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5F5B52;background:#F6F3EA;flex-shrink:0}
+.chip{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 8px 0 4px;border:1px solid transparent;border-radius:4px;background:transparent;color:#1C1A16;font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+</style>
+</head>
+<body>
+<div style="width: 560px; height: 300px; box-sizing: border-box; display: flex; flex-direction: column; background: #F6F3EA; color: #1C1A16; font-family: 'IBM Plex Sans', sans-serif; overflow: hidden">
+
+  <header style="flex-grow: 1; min-height: 0; padding: 16px 22px 12px; display: flex; flex-direction: column; gap: 8px">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <span style="width: 8px; height: 8px; border-radius: 4px; background: #C2362D"></span>
+      <span class="label" style="color: #1C1A16">SURF ACE</span>
+      <span class="label">· 11:58 AM</span>
+      <span style="flex-grow: 1"></span>
+      <button style="display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border: 1px solid #DCD6C8; border-radius: 13px; background: transparent; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5F5B52">IDs ▾</button>
+    </div>
+    <h1 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-size: 21px; font-weight: 400; line-height: 1.28; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden">The agent planning Surf Ace’s annotation events went quiet after a prod. Keep waiting, or step in?</h1>
+  </header>
+
+  <section aria-label="Decide" style="flex-shrink: 0; background: #EDE9DD; border-top: 1px solid #DCD6C8; padding: 8px 16px 12px; display: flex; flex-direction: column; gap: 4px">
+    <div style="display: flex; align-items: baseline; justify-content: space-between">
+      <span class="label" style="color: #1C1A16">DECIDE</span>
+      <span class="label" style="letter-spacing: 0.04em">/ to ask · enlarge for the brief</span>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px 6px">
+      <button class="chip" style="border-color: #1C1A16; background: #F6F3EA"><span class="key">1</span>Let it continue</button>
+      <button class="chip"><span class="key">2</span>Prod it again</button>
+      <button class="chip"><span class="key">3</span>Dismiss alert</button>
+      <button class="chip"><span class="key">4</span>Take it away</button>
+      <button class="chip"><span class="key">5</span>Hand it off</button>
+      <button class="chip"><span class="key">6</span>Retire plan</button>
+    </div>
+  </section>
+</div>
+</body>
+</html>
