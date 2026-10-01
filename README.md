@@ -72,7 +72,9 @@ the user first.
 
 ### Agent settings (Ctrl+,)
 
-The existing scroll-motion screen now also auto-saves the selected harness/model atomically to
+The settings window (Ctrl+, from any decision window; Ctrl+, or Esc closes it)
+holds agent settings and scroll motion. It is an ordinary window, so it can be
+moved, and on Scottland scaled or turned into a widget. It also auto-saves the selected harness/model atomically to
 `~/.config/omarchy/tightbeam-decisions-model.json`. This shared override applies
 to both summarizer roles when a bridge starts. Every menu rereads it on open;
 existing conversations are preserved until explicitly re-summarized.
@@ -138,6 +140,34 @@ survives the launching process, Omarchy Shell plugin reloads, and Hyprland
 configuration reloads. The host starts with the widget and is recovered
 automatically when a menu item or notification is opened.
 
+Each request has at most one window. Opening a request that already has one,
+from the bar, a notification or the `show-decision-request` skill, brings that
+window to you instead of opening a second. The settings window (Ctrl+,) works
+the same way.
+
+The host is a long-lived service, so its environment is fixed when it starts,
+which can be before the desktop has exported the user's `PATH`. It runs node
+through `bridge/node.sh`, which reads the user manager's current `PATH` at each
+launch so the bridge, `codex` and `claude` are always found.
+
+## Compositors
+
+The plugin runs on Hyprland and on Scottland. `bridge/compositor.js` is the
+only code that talks to the compositor, adapted from Ask's module of the same
+name. It picks a backend from `XDG_CURRENT_DESKTOP`; window lookup goes through
+the Hyprland IPC, which Scottland's shim also serves. Bringing a window to you
+("present") differs:
+
+| | Hyprland | Scottland |
+|---|---|---|
+| Window in view | focused | raised and focused |
+| Window scaled down at a side | — | flies to the middle at full size, focused |
+| Window turned into a rail widget | — | opens back into its window in the middle |
+
+When an agent finishes a reply in a window you are not using, the window asks
+for attention (xdg-activation). Scottland shows that as its attention halo on
+the window or its widget and does not take focus.
+
 ## Agent skill
 
 Installing agents should also expose the bundled `show-decision-request` skill
@@ -170,6 +200,10 @@ machine-specific: it opens the local plugin configured for Gibson as Mike.
 | `WindowHost.qml` | Independent process that owns decision windows and polls their status |
 | `decision-window-host.sh` | Starts the window host and forwards open requests over IPC |
 | `DecisionWindow.qml` | Standalone decision detail window |
+| `MotionTuner.qml` | Settings window (Ctrl+,): agent settings and scroll motion |
+| `bridge/compositor.js` | Hyprland and Scottland backends: find and present a window |
+| `bridge/present-window.js` | Presents one of the window host's own windows by title |
+| `bridge/node.sh` | Runs node with the user manager's current `PATH` |
 | `skills/show-decision-request/SKILL.md` | Shared Codex/Claude skill for opening a request by ID |
 | `DecisionChat.qml` | Explain-and-discuss pane, ruling control |
 | `tightbeam.sh` | Transport resolution; `tb()` runs the CLI locally or over ssh |

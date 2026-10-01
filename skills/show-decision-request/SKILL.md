@@ -20,6 +20,8 @@ independent Quickshell window host when necessary.
 Run the command when showing the window is explicitly requested. A successful
 command means the request was delivered to the host; if the ID is no longer an
 open decision request, the host logs that fact and does not fabricate a window.
+If the request already has a window, it is brought to the user (on Scottland,
+out of a rail widget or a side zone to the middle) instead of opening another.
 
 This is a graphical desktop action. Run it as `mike` in the active Wayland
 desktop session. Do not use it from another machine or user session unless the

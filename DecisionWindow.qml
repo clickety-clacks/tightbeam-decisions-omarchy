@@ -135,7 +135,7 @@ FloatingWindow {
 
   Process {
     id: summaryProcess
-    command: ["env", "HUGINN_INTERNAL=1", "node", root.script("bridge/bridge.js"), "--summary"]
+    command: ["env", "HUGINN_INTERNAL=1", root.script("bridge/node.sh"), root.script("bridge/bridge.js"), "--summary"]
     stdinEnabled: true
     stdout: SplitParser { onRead: function(line) { root.handleSummaryLine(line) } }
   }
@@ -179,7 +179,7 @@ FloatingWindow {
       summaryProcess.running = false
       detailClosed(root)
     }
-    // Hyprland can briefly withdraw the backing surface while it reloads.
+    // The compositor can briefly withdraw the backing surface while it reloads.
     // Keep the QML window alive; `visible` changing above is the real close.
 
   component IdPill: Rectangle {

@@ -1,24 +1,18 @@
 import QtQuick
 import QtQuick.Controls
 import Quickshell
-import Quickshell.Wayland
 import qs.Commons
 
-PanelWindow {
+// Agent settings and scroll motion (Ctrl+,). A real window, so it can be
+// moved, and on Scottland scaled or turned into a widget like any other.
+FloatingWindow {
   id: root
   visible: false
-  anchors { top: true; bottom: true; left: true; right: true }
-  color: "transparent"
-  WlrLayershell.namespace: "tightbeam-decisions-motion"
-  WlrLayershell.layer: WlrLayer.Overlay
-  WlrLayershell.keyboardFocus: visible
-    ? WlrKeyboardFocus.OnDemand
-    : WlrKeyboardFocus.None
-  exclusionMode: ExclusionMode.Ignore
-  mask: Region {
-    item: tunerCard
-    Region { item: closeButton }
-  }
+  title: "Tightbeam Decisions settings"
+  color: Color.menu.background
+  implicitWidth: Style.space(560)
+  implicitHeight: Style.space(850)
+  minimumSize: Qt.size(Style.space(420), Style.space(360))
 
   property real impulse: 335
   property real deceleration: 608
@@ -46,21 +40,13 @@ PanelWindow {
 
   Rectangle {
     id: tunerCard
-    width: Math.min(Style.space(560), parent.width - Style.gapsOut * 2)
-    height: Math.min(Style.space(850), parent.height - Style.gapsOut * 2)
-    readonly property real companionGap: Style.space(18)
-    readonly property real askHalfWidth: Style.space(270)
-    x: Math.min(parent.width - width - Math.max(Style.gapsOut, Style.space(20)),
-      parent.width / 2 + askHalfWidth + companionGap)
-    y: Math.max(Style.gapsOut, Style.space(20), Math.round((parent.height - height) * 0.38))
+    anchors.fill: parent
     color: Color.menu.background
-    border.color: Color.menu.border
-    border.width: Math.max(1, Style.space(2))
-    radius: Style.cornerRadius
 
     Flickable {
       anchors.fill: parent
       anchors.margins: Style.space(28)
+      anchors.topMargin: Style.space(28) + closeButton.height
       clip: true
       contentHeight: settingsColumn.implicitHeight
       boundsBehavior: Flickable.StopAtBounds
@@ -245,8 +231,8 @@ PanelWindow {
       objectName: "closeSettings"
       anchors.top: parent.top
       anchors.right: parent.right
-      anchors.topMargin: -height / 2
-      anchors.rightMargin: -width / 2
+      anchors.topMargin: Style.space(14)
+      anchors.rightMargin: Style.space(14)
       width: Style.space(32)
       height: width
       padding: 0

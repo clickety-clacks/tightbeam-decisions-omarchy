@@ -46,8 +46,9 @@ Item {
     + (user === "" ? "" : " --as-user " + user)
   // Owned by this plugin; the bridge reads role/model configuration itself.
   readonly property string bridgePath: Qt.resolvedUrl("bridge/bridge.js").toString().replace(/^file:\/\//, "")
+  readonly property string nodePath: Qt.resolvedUrl("bridge/node.sh").toString().replace(/^file:\/\//, "")
   function bridgeCommand() {
-    return ["env", "HUGINN_INTERNAL=1", "node", bridgePath]
+    return ["env", "HUGINN_INTERNAL=1", nodePath, bridgePath]
   }
 
   // Report an incomplete decision-request installation explicitly.

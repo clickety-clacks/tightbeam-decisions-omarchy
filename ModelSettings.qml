@@ -16,13 +16,14 @@ Item {
   property string pendingModel: ""
   property bool responseReceived: false
   readonly property string script: Qt.resolvedUrl("bridge/model-settings.js").toString().replace(/^file:\/\//, "")
+  readonly property string node: Qt.resolvedUrl("bridge/node.sh").toString().replace(/^file:\/\//, "")
   implicitHeight: contentColumn.implicitHeight
   function reload() {
     if (settingsProcess.running) return
     errorText = ""
     reading = true
     responseReceived = false
-    settingsProcess.command = ["node", script, "read"]
+    settingsProcess.command = [node, script, "read"]
     settingsProcess.running = true
   }
   function rememberSelection() {
@@ -42,7 +43,7 @@ Item {
       root.reading = false
       root.saving = true
       root.responseReceived = false
-      settingsProcess.command = ["node", root.script, "save", root.pendingProvider, root.pendingModel, root.pendingEffort]
+      settingsProcess.command = [root.node, root.script, "save", root.pendingProvider, root.pendingModel, root.pendingEffort]
       root.pendingModel = ""
       settingsProcess.running = true
     }

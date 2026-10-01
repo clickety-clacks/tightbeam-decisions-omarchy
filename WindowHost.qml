@@ -70,7 +70,24 @@ ShellRoot {
     keyboardDeceleration = Math.round(Math.max(100, Math.min(5000, deceleration)))
     saveSettings.restart()
   }
-  function openMotionTuner() { motionTuner.open() }
+  function openMotionTuner() {
+    if (motionTuner.visible) presentWindow(motionTuner.title)
+    else motionTuner.open()
+  }
+  // "I want to see this now": a widget opens back into its window, a side
+  // window comes to the middle (Scottland), or it is focused (Hyprland).
+  function presentWindow(title) {
+    var job = presentFactory.createObject(root, {
+      command: [script("bridge/node.sh"), script("bridge/present-window.js"), String(title)]
+    })
+    if (job) job.running = true
+  }
+  function windowForRequest(id) {
+    for (var index = 0; index < detailWindows.length; index++)
+      if (detailWindows[index] && !detailWindows[index].closing
+          && String(detailWindows[index].request.id) === String(id)) return detailWindows[index]
+    return null
+  }
   function configure(host, asUser) {
     reloadTheme()
     var requestedHost = String(host || "")
@@ -86,6 +103,9 @@ ShellRoot {
   }
   function openRequestObject(request) {
     if (!request || !request.id) return false
+    // One window per request: opening it again brings that window to you.
+    var existing = windowForRequest(request.id)
+    if (existing) { presentWindow(existing.title); return true }
     var detail = detailFactory.createObject(root, {
       owner: root,
       request: request,
@@ -96,6 +116,7 @@ ShellRoot {
     detail.detailClosed.connect(root.removeDetailWindow)
     detailWindows = detailWindows.concat([detail])
     detail.open()
+    presentWindow(detail.title)
     return true
   }
   function openRequestJson(payload) {
@@ -218,6 +239,14 @@ ShellRoot {
     onResetRequested: root.setKeyboardMotion(335, 608)
   }
   Component { id: detailFactory; DecisionWindow {} }
+  Component {
+    id: presentFactory
+    Process {
+      id: presentJob
+      stderr: StdioCollector { waitForEnd: true; onStreamFinished: if (String(text || "").trim() !== "") console.warn(String(text).trim()) }
+      onExited: Qt.callLater(function() { presentJob.destroy() })
+    }
+  }
   IpcHandler {
     target: "mike.tightbeam-decision-windows"
     function ping(): string { return "ok" }
