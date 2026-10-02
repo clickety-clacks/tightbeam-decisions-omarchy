@@ -33,7 +33,7 @@ Item {
   signal choiceFocused(int index)
   signal explainRequested()
 
-  readonly property real horizontalPadding: Math.round(16 * fontScale)
+  property real horizontalPadding: Math.round(16 * fontScale)
   readonly property real verticalPadding: Math.round(10 * fontScale)
   readonly property real headerHeight: Math.round(22 * fontScale)
   readonly property real gap: Math.round(6 * fontScale)

@@ -1288,6 +1288,8 @@ Item {
     width: parent.width
     choices: root.rulingChoices
     columns: root.dockColumns
+    // Same left edge as the body and the ask box.
+    horizontalPadding: root.bodyHorizontalPadding
     showLabel: true
     showExplain: true
     hint: root.decisionStatus !== ""
@@ -1322,7 +1324,7 @@ Item {
     anchors.bottom: parent.bottom
     // Grows with the question, like the old composer, up to two thirds of
     // the window; past that the text scrolls inside it.
-    readonly property real verticalPadding: Math.round(10 * root.fontScale)
+    readonly property real verticalPadding: Math.round(16 * root.fontScale)
     height: Math.max(root.askLineHeight, Math.min(root.maxAskHeight,
       input.implicitHeight + verticalPadding * 2))
     color: root.ground
@@ -1335,7 +1337,8 @@ Item {
       anchors.right: askKeycap.left
       anchors.top: parent.top
       anchors.bottom: parent.bottom
-      anchors.leftMargin: Math.round(12 * root.fontScale)
+      // Line the text up with the body text above it.
+      anchors.leftMargin: root.bodyHorizontalPadding
       anchors.rightMargin: Math.round(10 * root.fontScale)
       anchors.topMargin: composer.verticalPadding
       anchors.bottomMargin: composer.verticalPadding
@@ -1406,10 +1409,11 @@ Item {
     Text {
       id: askKeycap
       anchors.right: parent.right
-      anchors.rightMargin: Math.round(12 * root.fontScale)
+      anchors.rightMargin: root.bodyHorizontalPadding
       // Stays on the first line's row while the box grows.
       anchors.top: parent.top
-      anchors.topMargin: Math.round((root.askLineHeight - height) / 2)
+      anchors.topMargin: composer.verticalPadding
+        + Math.round((input.font.pixelSize * 1.3 - height) / 2)
       width: Math.round(24 * root.fontScale)
       height: width
       text: "/"

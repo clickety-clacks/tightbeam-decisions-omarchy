@@ -142,7 +142,8 @@ its mockup size):
 | Footer identifiers | Plex Mono | 11 | 400 |
 | Keycap | Plex Mono | 14, in a 24 px rounded square | 400 |
 
-The window opens at 960 × 720 (4:3), times the font scale.
+The window opens at 720 × 960 (3:4, portrait for the single column), times
+the font scale.
 
 ## Color
 

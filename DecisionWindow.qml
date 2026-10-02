@@ -99,8 +99,8 @@ FloatingWindow {
   readonly property real eyebrowRoom: Math.max(0, headerColumn.width - eyebrowActions.width
     - Math.round((8 + 10 + 10 + 8 + 10) * root.fontScale))
 
-  implicitWidth: Math.round(960 * root.fontScale)
-  implicitHeight: Math.round(720 * root.fontScale)
+  implicitWidth: Math.round(720 * root.fontScale)
+  implicitHeight: Math.round(960 * root.fontScale)
   minimumSize: Qt.size(320, 300)
   color: root.ground
   title: root.request ? "Decision request — " + root.request.id : "Decision request"
@@ -836,7 +836,8 @@ FloatingWindow {
             - eyebrow.height - headerColumn.spacing - Math.round(12 * root.fontScale))
             / (font.pixelSize * 1.25))))
           : root.headlineLines
-        height: Math.min(implicitHeight, Math.round(font.pixelSize * 1.25 * fittedLines))
+        // maximumLineCount does the clamping; a height cap here elided a line early.
+        height: implicitHeight
         text: root.questionText
         color: root.ink
         font.family: root.newsreaderFamily
