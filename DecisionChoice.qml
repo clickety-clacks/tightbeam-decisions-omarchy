@@ -1,6 +1,5 @@
 import QtQuick
 import qs.Commons
-import qs.Ui
 
 Item {
   id: root
@@ -16,6 +15,7 @@ Item {
   property bool proposed: false
   property bool recording: false
   property bool interactive: true
+  property bool tooltipsEnabled: true
   property real fontScale: 1
   property string sansFamily: ""
   property string sansMediumFamily: ""
@@ -29,6 +29,7 @@ Item {
 
   signal activated()
   signal focusedByUser()
+  signal consequenceHovered(bool hovered)
 
   readonly property bool outlined: armed || focused
   readonly property real horizontalPadding: Math.round(12 * fontScale)
@@ -108,6 +109,7 @@ Item {
     font.family: root.sansMediumFamily !== "" ? root.sansMediumFamily : root.sansFamily
     font.pixelSize: Math.round((root.density === "compact" ? 14 : 15) * root.fontScale)
     font.weight: Font.DemiBold
+    font.variableAxes: ({ "wght": 600 })
     lineHeight: font.pixelSize * (root.density === "compact" ? 1.3 : 1.35)
     lineHeightMode: Text.FixedHeight
     wrapMode: root.density === "full" ? Text.Wrap : Text.NoWrap
@@ -117,7 +119,7 @@ Item {
 
   Text {
     id: effectText
-    visible: root.density !== "compact"
+    visible: root.density !== "compact" && (root.recording || root.effect.trim() !== "")
     x: root.horizontalPadding
     y: labelText.y + labelText.implicitHeight + Math.round(2 * root.fontScale)
     width: root.textWidth
@@ -136,7 +138,9 @@ Item {
     id: rawText
     visible: root.density === "full" && !root.recording
     x: root.horizontalPadding
-    y: effectText.y + effectText.implicitHeight + Math.round(3 * root.fontScale)
+    y: (effectText.visible
+      ? effectText.y + effectText.implicitHeight
+      : labelText.y + labelText.implicitHeight) + Math.round(3 * root.fontScale)
     width: root.textWidth
     text: root.rawOption
     color: root.faint
@@ -152,7 +156,9 @@ Item {
     x: root.horizontalPadding
     y: rawText.visible
       ? rawText.y + rawText.implicitHeight + Math.round(4 * root.fontScale)
-      : effectText.y + effectText.implicitHeight + Math.round(4 * root.fontScale)
+      : (effectText.visible
+        ? effectText.y + effectText.implicitHeight
+        : labelText.y + labelText.implicitHeight) + Math.round(4 * root.fontScale)
     width: root.textWidth
     text: "proposed in conversation"
     color: root.secondary
@@ -174,13 +180,8 @@ Item {
 
   HoverHandler {
     id: choiceHover
+    enabled: root.tooltipsEnabled && root.interactive && root.density !== "full"
     cursorShape: Qt.PointingHandCursor
-  }
-
-  PanelToolTip {
-    visible: root.density !== "full" && (choiceHover.hovered || (root.focused && root.focusActive))
-    text: root.effect
-    fontFamily: root.sansFamily
-    delay: 350
+    onHoveredChanged: root.consequenceHovered(hovered)
   }
 }

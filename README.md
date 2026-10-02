@@ -211,6 +211,7 @@ machine-specific: it opens the local plugin configured for Gibson as Mike.
 | `DecisionWindow.qml` | Standalone decision detail window (design: `docs/decision-window/SPEC.md`) |
 | `DecisionChoice.qml` | Density-aware ruling choice row used by the decide regions |
 | `DecisionCompactStrip.qml` | Compact two- or three-column choice dock/strip |
+| `DecisionConsequenceTip.qml` | Single row-anchored consequence tooltip for compact choices |
 | `DecisionOutcome.qml` | Inline handled-outcome region |
 | `fonts/` | Bundled Newsreader and IBM Plex faces used only by decision windows |
 | `MotionTuner.qml` | Settings window (Ctrl+,): agent settings and scroll motion |

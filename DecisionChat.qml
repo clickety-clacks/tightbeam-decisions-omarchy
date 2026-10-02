@@ -395,7 +395,9 @@ Item {
       activeReply = messages.count - 1
     }
     if (next !== "") activeReplyMessageId = next
-    messages.setProperty(activeReply, "body", (messages.get(activeReply).body || "") + text)
+    var body = (messages.get(activeReply).body || "") + text
+    messages.setProperty(activeReply, "body", body)
+    if (submittedPromptIndex < 0 && activeReply === 0) updateStreamingBrief(body)
   }
 
   function plainBrief(text) { return String(text || "").trim() }
@@ -414,6 +416,36 @@ Item {
     return match ? plainBrief(match[1]) : ""
   }
 
+  function stripControlBlocks(value, includeOpen) {
+    var text = String(value || "")
+    var complete = /```(?:header-summary|choice-effects|choices|rule)[ \t]*\r?\n[\s\S]*?```/gi
+    text = text.replace(complete, "")
+    if (includeOpen) {
+      var open = /```(?:header-summary|choice-effects|choices|rule)[ \t]*\r?\n[\s\S]*$/gi
+      text = text.replace(open, "")
+    }
+    return text
+  }
+
+  function liveBriefSection(body, title) {
+    return stripControlBlocks(extractBriefSection(stripControlBlocks(body, true), title), true)
+      .trim()
+  }
+
+  function updateStreamingBrief(body) {
+    briefTldr = liveBriefSection(body, "TL;DR")
+    briefRecommendation = liveBriefSection(body, "Recommendation")
+  }
+
+  function renderMessageBody(body, initialReply) {
+    var value = stripControlBlocks(body, true)
+    if (initialReply) {
+      var briefSections = /(?:^|\n)##\s*(?:TL;DR|Recommendation)\s*\n[\s\S]*?(?=\n##\s|$)/gi
+      value = value.replace(briefSections, "").trim()
+    }
+    return spacedMarkdown(value)
+  }
+
   // Finished replies are the boundary at which fenced controls become UI.
   // The initial TL;DR and recommendation move into the pinned reading brief;
   // later answers remain in the conversation in their original order.
@@ -421,10 +453,10 @@ Item {
     if (activeReply < 0 || activeReply >= messages.count) return
     var body = String(messages.get(activeReply).body || "")
     var changed = false
-    var headerPattern = /```header-summary[ \t]*\n[\s\S]*?```/gi
+    var headerPattern = /```header-summary[ \t]*\r?\n[\s\S]*?```/gi
     var headerMatch = headerPattern.exec(body)
     if (headerMatch) {
-      var headerBody = /```header-summary[ \t]*\n([\s\S]*?)```/i.exec(headerMatch[0])
+      var headerBody = /```header-summary[ \t]*\r?\n([\s\S]*?)```/i.exec(headerMatch[0])
       headerSummary = String(headerBody ? headerBody[1] : "").replace(/\s+/g, " ").trim()
       headerSummaryReady(headerSummary)
       changed = true
@@ -435,7 +467,7 @@ Item {
     var effectsFound = false
     var conversationChoices = []
     var rule = -1
-    var controls = /```(choices|choice-effects|rule)[ \t]*\n([\s\S]*?)```/gi
+    var controls = /```(choices|choice-effects|rule)[ \t]*\r?\n([\s\S]*?)```/gi
     var match
     while ((match = controls.exec(body)) !== null) {
       changed = true
@@ -460,6 +492,9 @@ Item {
       }
     }
     if (changed) body = body.replace(controls, "").trim()
+    var sanitizedBody = stripControlBlocks(body, true).trim()
+    if (sanitizedBody !== body) changed = true
+    body = sanitizedBody
 
     if (initialReply) {
       briefTldr = extractBriefSection(body, "TL;DR")
@@ -840,7 +875,6 @@ Item {
         Text {
           width: parent.width
           visible: root.briefTldr !== ""
-          height: visible ? implicitHeight : 0
           text: root.spacedMarkdown(root.briefTldr)
           color: root.foreground
           font.family: root.sansFamily
@@ -859,7 +893,6 @@ Item {
         Text {
           width: parent.width
           visible: root.briefRecommendation !== ""
-          height: visible ? implicitHeight : 0
           text: root.spacedMarkdown(root.briefRecommendation)
           color: root.foreground
           font.family: root.sansFamily
@@ -878,7 +911,6 @@ Item {
         Text {
           width: parent.width
           visible: root.briefTldr === "" && root.briefRecommendation === ""
-          height: visible ? implicitHeight : 0
           text: root.summaryNotes !== "" ? root.summaryNotes
             : (root.summaryParent !== "" ? root.summaryParent : "Reading the request…")
           color: root.secondary
@@ -942,7 +974,6 @@ Item {
         width: parent.width
         visible: root.narrowLayout && root.decisionStatus !== ""
           && root.decisionStatus.indexOf("Recording “") !== 0
-        height: visible ? implicitHeight : 0
         text: root.decisionStatus
         color: root.secondary
         font.family: root.monoFamily
@@ -972,8 +1003,8 @@ Item {
             Text {
               width: parent.width
               visible: body !== ""
-              height: visible ? implicitHeight : 0
-              text: human ? body : root.spacedMarkdown(body)
+              text: human ? body : root.renderMessageBody(body,
+                index === root.activeReply && root.submittedPromptIndex < 0)
               color: human ? root.accent : root.foreground
               font.family: human
                 ? (root.newsreaderItalicFamily !== "" ? root.newsreaderItalicFamily : root.newsreaderFamily)
@@ -1027,6 +1058,7 @@ Item {
                     font.family: root.sansFamily
                     font.pixelSize: Math.round(13 * root.fontScale)
                     font.weight: Font.Medium
+                    font.variableAxes: ({ "wght": 500 })
                     elide: Text.ElideRight
                   }
 
@@ -1093,7 +1125,6 @@ Item {
       Text {
         width: parent.width
         visible: root.statusText !== ""
-        height: visible ? implicitHeight : 0
         text: root.statusText
         color: root.secondary
         font.family: root.monoFamily
@@ -1150,27 +1181,23 @@ Item {
           visible: root.originalExpanded
           spacing: Math.round(6 * root.fontScale)
 
-          TextEdit {
+          Text {
             width: parent.width
-            height: visible ? contentHeight : 0
             text: "question\n" + String(root.request && root.request.question || "")
               + "\n\nsubject\n" + String(root.request && root.request.subject || "")
               + "\n\nnote\n" + String(root.request && root.request.note || "")
             color: root.secondary
             font.family: root.monoFamily
             font.pixelSize: root.captionSize
-            wrapMode: TextEdit.Wrap
-            readOnly: true
-            selectByMouse: true
+            wrapMode: Text.Wrap
             Keys.onPressed: function(event) {
               if (root.handleFontKey(event) || root.handleMotionTunerKey(event)
                   || root.handleScrollKey(event, false) || root.handleGlobalKey(event)) event.accepted = true
             }
           }
 
-          TextEdit {
+          Text {
             width: parent.width
-            height: visible ? contentHeight : 0
             text: {
               var options = root.request && root.request.options ? root.request.options : []
               var lines = ["options"]
@@ -1181,9 +1208,7 @@ Item {
             color: root.secondary
             font.family: root.monoFamily
             font.pixelSize: root.captionSize
-            wrapMode: TextEdit.Wrap
-            readOnly: true
-            selectByMouse: true
+            wrapMode: Text.Wrap
             Keys.onPressed: function(event) {
               if (root.handleFontKey(event) || root.handleMotionTunerKey(event)
                   || root.handleScrollKey(event, false) || root.handleGlobalKey(event)) event.accepted = true
@@ -1216,6 +1241,7 @@ Item {
     sansFamily: root.sansFamily
     sansMediumFamily: root.sansFamily
     monoFamily: root.monoFamily
+    monoMediumFamily: root.monoMediumFamily
     ground: root.ground
     panel: root.mixColor(root.ground, root.foreground, 0.05)
     ink: root.foreground

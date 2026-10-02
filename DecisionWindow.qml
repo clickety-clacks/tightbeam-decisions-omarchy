@@ -36,6 +36,7 @@ FloatingWindow {
   property int armedChoice: -1
   property int focusedChoice: -1
   property int proposedChoice: -1
+  property int hoveredChoice: -1
   property bool choiceFocusActive: false
   property bool minimumAskRevealed: false
   property var choiceData: []
@@ -56,13 +57,13 @@ FloatingWindow {
   readonly property string monoFamily: owner.decisionPlexMonoFamily
   readonly property string monoMediumFamily: owner.decisionPlexMonoMediumFamily
 
-  readonly property bool minimumLayout: root.height < 360 * root.fontScale
-  readonly property bool wideLayout: !root.minimumLayout && root.width >= 720 * root.fontScale
+  readonly property bool minimumLayout: root.height < 360
+  readonly property bool wideLayout: !root.minimumLayout && root.width >= 720
   readonly property bool narrowLayout: !root.minimumLayout && !root.wideLayout
-  readonly property bool footerRoom: !root.minimumLayout && root.height >= 480 * root.fontScale
+  readonly property bool footerRoom: !root.minimumLayout && root.height >= 480
   readonly property bool headerIdsVisible: !root.footerRoom
   readonly property int headlineLines: root.minimumLayout ? 3
-    : root.narrowLayout ? 4 : (root.height < 560 * root.fontScale ? 1 : 3)
+    : root.narrowLayout ? 4 : (root.height < 560 ? 1 : 3)
   readonly property real headerContentHeight: headerColumn.implicitHeight
     + Math.round((root.wideLayout ? 22 : root.narrowLayout ? 18 : 16) * root.fontScale)
     + Math.round((root.wideLayout ? 20 : root.narrowLayout ? 14 : 12) * root.fontScale)
@@ -76,7 +77,7 @@ FloatingWindow {
       - (root.minimumAskRevealed ? chat.askLineHeight : 0))
     : root.headerContentHeight
   readonly property real decidePanelHeight: root.contentAreaHeight
-  readonly property real decidePadding: Math.round((root.height < 480 * root.fontScale ? 8 : 18) * root.fontScale)
+  readonly property real decidePadding: Math.round((root.height < 480 ? 8 : 18) * root.fontScale)
   readonly property real decideHeadingHeight: Math.round(22 * root.fontScale)
   readonly property real decideContentWidth: Math.max(0, root.decideWidth - root.decidePadding * 2)
   readonly property bool decisionErrorVisible: decisionStatus !== ""
@@ -97,7 +98,7 @@ FloatingWindow {
 
   implicitWidth: Math.round(820 * root.fontScale)
   implicitHeight: Math.round(760 * root.fontScale)
-  minimumSize: Qt.size(Math.round(320 * root.fontScale), Math.round(300 * root.fontScale))
+  minimumSize: Qt.size(320, 300)
   color: root.ground
   title: root.request ? "Decision request — " + root.request.id : "Decision request"
 
@@ -245,9 +246,16 @@ FloatingWindow {
     return text.length > 14 ? text.substring(0, 12) + "…" : text
   }
 
-  function shortPlan(value) {
+  function planUrl() {
+    return String(root.request && (root.request.planUrl || root.request.workItemUrl || root.request.url) || "")
+  }
+
+  function hasPlanUrl() { return root.planUrl() !== "" }
+
+  function shortPlan(value, opens) {
     var text = String(value || "").replace(/\s+/g, " ").trim()
-    return text.length > 32 ? text.substring(0, 29).trim() + "… ↗" : text + " ↗"
+    var suffix = opens ? " ↗" : ""
+    return text.length > 32 ? text.substring(0, 32 - suffix.length - 1).trim() + "…" + suffix : text + suffix
   }
 
   function identifierEntries() {
@@ -255,8 +263,8 @@ FloatingWindow {
     var workItem = String(root.request && root.request.workItemId || "")
     if (workItem !== "") result.push({
       label: "plan", value: workItem,
-      display: shortPlan(root.request.subject || root.parentSummary || "work item"),
-      opens: true
+      display: shortPlan(root.request.subject || root.parentSummary || "work item", root.hasPlanUrl()),
+      opens: root.hasPlanUrl()
     })
     var requestId = String(root.request && root.request.id || "")
     var assignmentId = String(root.request && root.request.assignmentId || "")
@@ -269,7 +277,7 @@ FloatingWindow {
   function hasIdentifiers() { return identifierEntries().length > 0 }
 
   function openPlan() {
-    var target = String(root.request && (root.request.planUrl || root.request.workItemUrl || root.request.url) || "")
+    var target = root.planUrl()
     if (target !== "") Qt.openUrlExternally(target)
   }
 
@@ -290,7 +298,7 @@ FloatingWindow {
       return String(explainer[originalIndex]).trim()
     if (originalIndex < summaryChoiceEffects.length && String(summaryChoiceEffects[originalIndex] || "").trim() !== "")
       return String(summaryChoiceEffects[originalIndex]).trim()
-    return "Chooses “" + raw + "”."
+    return ""
   }
 
   function refreshChoiceData() {
@@ -469,6 +477,7 @@ FloatingWindow {
     armedChoice = -1
     focusedChoice = -1
     proposedChoice = -1
+    hoveredChoice = -1
     choiceFocusActive = false
     minimumAskRevealed = false
     resetSummary()
@@ -494,6 +503,7 @@ FloatingWindow {
     replying = false
     selectedChoice = ""
     handled = true
+    hoveredChoice = -1
     decisionStatus = ""
     chat.handled = true
     chat.stop(false, false)
@@ -562,7 +572,7 @@ FloatingWindow {
     readonly property real scale: root.fontScale
     readonly property real labelWidth: labelText.implicitWidth
     width: menuMode ? (parent ? parent.width : 0)
-      : Math.min(Math.max(90 * scale, labelText.implicitWidth + valueText.implicitWidth + 14 * scale), 270 * scale)
+      : Math.max(90 * scale, labelText.implicitWidth + valueText.implicitWidth + 14 * scale)
     height: Math.round(30 * scale)
 
     Text {
@@ -579,14 +589,13 @@ FloatingWindow {
     Text {
       id: valueText
       x: labelText.width + Math.round(6 * root.fontScale)
-      anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
-      width: Math.max(0, parent.width - x)
+      width: identifier.menuMode ? Math.max(0, parent.width - x) : implicitWidth
       text: identifier.copied ? "copied" : identifier.display
       color: root.secondary
       font.family: root.monoFamily
       font.pixelSize: Math.round(11 * root.fontScale)
-      elide: Text.ElideRight
+      elide: identifier.menuMode ? Text.ElideRight : Text.ElideNone
     }
 
     MouseArea {
@@ -666,31 +675,52 @@ FloatingWindow {
           anchors.left: needsYouDot.right
           anchors.leftMargin: Math.round(10 * root.fontScale)
           anchors.verticalCenter: parent.verticalCenter
-          width: Math.min(180 * root.fontScale, implicitWidth)
+          width: Math.min(180 * root.fontScale, implicitWidth,
+            Math.max(0, parent.width - x - eyebrowActions.width - eyebrowTime.width
+              - Math.round(28 * root.fontScale)))
           text: root.projectText
           color: root.ink
           font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
           font.pixelSize: Math.round(11 * root.fontScale)
           font.weight: Font.Medium
+          font.variableAxes: ({ "wght": 500 })
           font.letterSpacing: Math.round(1.3 * root.fontScale)
           elide: Text.ElideRight
         }
 
         Text {
-          id: eyebrowMeta
+          id: eyebrowKind
           anchors.left: projectLabel.right
           anchors.leftMargin: Math.round(10 * root.fontScale)
+          anchors.right: eyebrowTime.left
+          anchors.rightMargin: Math.round(8 * root.fontScale)
+          anchors.verticalCenter: parent.verticalCenter
+          text: "·  " + Kinds.info(root.request && root.request.kind).singular.toUpperCase()
+          color: root.secondary
+          font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
+          font.pixelSize: Math.round(11 * root.fontScale)
+          font.weight: Font.Medium
+          font.variableAxes: ({ "wght": 500 })
+          font.letterSpacing: Math.round(1.3 * root.fontScale)
+          elide: Text.ElideRight
+        }
+
+        Text {
+          id: eyebrowTime
           anchors.right: eyebrowActions.left
           anchors.rightMargin: Math.round(10 * root.fontScale)
           anchors.verticalCenter: parent.verticalCenter
-          text: "·  " + Kinds.info(root.request && root.request.kind).singular.toUpperCase()
-            + "  ·  " + root.formatRaisedAt(root.request && root.request.raisedAt)
+          width: Math.min(implicitWidth, Math.max(0, parent.width
+            - eyebrowActions.width - Math.round(10 * root.fontScale)))
+          text: "·  " + root.formatRaisedAt(root.request && root.request.raisedAt)
           color: root.secondary
-          font.family: root.monoFamily
+          font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
           font.pixelSize: Math.round(11 * root.fontScale)
           font.weight: Font.Medium
+          font.variableAxes: ({ "wght": 500 })
           font.letterSpacing: Math.round(1.3 * root.fontScale)
           elide: Text.ElideRight
+          horizontalAlignment: Text.AlignRight
         }
 
         Row {
@@ -949,6 +979,7 @@ FloatingWindow {
           font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
           font.pixelSize: Math.round(11 * root.fontScale)
           font.weight: Font.Medium
+          font.variableAxes: ({ "wght": 500 })
           font.letterSpacing: Math.round(1.3 * root.fontScale)
         }
 
@@ -1002,6 +1033,11 @@ FloatingWindow {
             faint: root.faint
             hairline: root.hairline
             keyBorder: root.keyBorder
+            tooltipsEnabled: true
+            onConsequenceHovered: function(hovered) {
+              root.hoveredChoice = hovered ? index
+                : (root.hoveredChoice === index ? -1 : root.hoveredChoice)
+            }
             onFocusedByUser: root.focusChoice(index)
             onActivated: root.submitChoiceByIndex(index)
           }
@@ -1039,6 +1075,18 @@ FloatingWindow {
     }
   }
 
+  DecisionConsequenceTip {
+    id: wideChoiceTip
+    anchorItem: root.wideLayout && !root.replying && !root.handled
+      && root.choiceDensity !== "full"
+      && root.hoveredChoice >= 0 ? decideRepeater.itemAt(root.hoveredChoice) : null
+    boundsItem: decidePanel
+    consequence: root.hoveredChoice >= 0 && root.hoveredChoice < root.choiceData.length
+      ? String(root.choiceData[root.hoveredChoice].effect || "") : ""
+    sansFamily: root.sansFamily
+    fontScale: root.fontScale
+  }
+
   Item {
     id: fullMeasure
     opacity: 0
@@ -1059,6 +1107,7 @@ FloatingWindow {
         number: Number(modelData.number || index + 1)
         proposed: root.proposedChoice === index
         interactive: false
+        tooltipsEnabled: false
         fontScale: root.fontScale
         sansFamily: root.sansFamily
         sansMediumFamily: root.sansFamily
@@ -1092,6 +1141,7 @@ FloatingWindow {
         rawOption: String(modelData.rawOption || "")
         number: Number(modelData.number || index + 1)
         interactive: false
+        tooltipsEnabled: false
         fontScale: root.fontScale
         sansFamily: root.sansFamily
         sansMediumFamily: root.sansFamily
@@ -1110,9 +1160,9 @@ FloatingWindow {
     id: minimumStrip
     visible: root.minimumLayout && !root.handled
     x: 0
-    anchors.bottom: root.bottom
+    y: root.height - height
     width: root.width
-    columns: root.width >= 480 * root.fontScale ? 3 : 2
+    columns: root.width >= 480 ? 3 : 2
     showLabel: true
     showExplain: false
     hint: root.decisionErrorVisible ? root.decisionStatus : "/ to ask · enlarge for the brief"
@@ -1127,6 +1177,7 @@ FloatingWindow {
     sansFamily: root.sansFamily
     sansMediumFamily: root.sansFamily
     monoFamily: root.monoFamily
+    monoMediumFamily: root.monoMediumFamily
     ground: root.ground
     panel: root.panel
     ink: root.ink
@@ -1162,7 +1213,7 @@ FloatingWindow {
     id: minimumOutcome
     visible: root.minimumLayout && root.handled
     x: 0
-    anchors.bottom: root.bottom
+    y: root.height - height
     width: root.width
     height: root.handled
       ? Math.min(Math.max(96 * root.fontScale, implicitHeight), root.height) : 0

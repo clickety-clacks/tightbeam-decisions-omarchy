@@ -13,12 +13,14 @@ Item {
   property int armedIndex: -1
   property int focusedIndex: -1
   property int proposedIndex: -1
+  property int hoveredIndex: -1
   property bool focusActive: false
   property bool interactive: true
   property string recordingChoice: ""
   property string sansFamily: ""
   property string sansMediumFamily: ""
   property string monoFamily: ""
+  property string monoMediumFamily: ""
   property color ground: Color.background
   property color panel: Color.background
   property color ink: Color.foreground
@@ -59,9 +61,10 @@ Item {
     height: root.headerHeight
     text: "DECIDE"
     color: root.ink
-    font.family: root.monoFamily
+    font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
     font.pixelSize: Math.round(11 * root.fontScale)
     font.weight: Font.Medium
+    font.variableAxes: ({ "wght": 500 })
     font.letterSpacing: Math.round(1.3 * root.fontScale)
     verticalAlignment: Text.AlignVCenter
   }
@@ -121,6 +124,7 @@ Item {
         recording: root.recordingChoice !== ""
           && String(modelData.rawOption || "") === root.recordingChoice
         interactive: root.interactive && !modelData.disabled
+        tooltipsEnabled: root.interactive
         fontScale: root.fontScale
         sansFamily: root.sansFamily
         sansMediumFamily: root.sansMediumFamily
@@ -131,9 +135,26 @@ Item {
         faint: root.faint
         hairline: root.hairline
         keyBorder: root.keyBorder
+        onConsequenceHovered: function(hovered) {
+          root.hoveredIndex = hovered ? index
+            : (root.hoveredIndex === index ? -1 : root.hoveredIndex)
+        }
         onFocusedByUser: root.choiceFocused(index)
         onActivated: root.choiceActivated(index)
       }
     }
+  }
+
+  DecisionConsequenceTip {
+    id: compactChoiceTip
+    active: root.visible && root.hoveredIndex >= 0
+      && root.hoveredIndex < (root.choices || []).length
+      && String(root.choices[root.hoveredIndex].effect || "").trim() !== ""
+    anchorItem: root.hoveredIndex >= 0 ? gridRepeater.itemAt(root.hoveredIndex) : null
+    boundsItem: root
+    consequence: root.hoveredIndex >= 0 && root.hoveredIndex < (root.choices || []).length
+      ? String(root.choices[root.hoveredIndex].effect || "") : ""
+    sansFamily: root.sansFamily
+    fontScale: root.fontScale
   }
 }
