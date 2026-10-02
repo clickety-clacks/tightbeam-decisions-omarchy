@@ -61,6 +61,12 @@ Item {
     height: root.headerHeight
     text: "DECIDE"
     color: root.ink
+
+    FontMetrics {
+      id: decideLabelMetrics
+      font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
+      font.pixelSize: Math.round(13 * root.fontScale)
+    }
     font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
     font.pixelSize: Math.round(13 * root.fontScale)
     font.weight: Font.Medium
@@ -74,7 +80,10 @@ Item {
     visible: root.showExplain || root.hint !== ""
     x: Math.max(0, root.width - width - root.horizontalPadding)
     y: root.verticalPadding
-    width: Math.max(0, Math.min(root.width - root.horizontalPadding * 2, implicitWidth))
+    // Leave room for the DECIDE label; the hint elides instead of overlapping it.
+    width: Math.max(0, Math.min(root.width - root.horizontalPadding * 2
+      - decideLabelMetrics.advanceWidth("DECIDE") - 6 * Math.round(1.3 * root.fontScale)
+      - root.gap * 2, implicitWidth))
     height: root.headerHeight
     text: root.hint !== "" ? root.hint : (root.showExplain ? "explain choices ↑" : "")
     color: root.secondary

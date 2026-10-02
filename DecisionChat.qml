@@ -46,6 +46,11 @@ Item {
   property bool minimumMode: false
   property bool compactAsk: false
   property bool showInlineChoices: false
+  // One column with the choices in the body; false only in Minimum.
+  property bool singleColumn: false
+  property int dockColumns: 2
+  // Keep the reading measure near 70 characters on wide windows.
+  readonly property real readingMaxWidth: Math.round(800 * root.fontScale)
   property bool bodyVisible: true
   property bool askVisible: true
   property string recordingChoice: ""
@@ -62,9 +67,16 @@ Item {
   signal fontResetRequested()
   signal motionTunerRequested()
 
-  readonly property int bodySize: Math.round(17 * fontScale)
+  readonly property int bodySize: Math.round(19 * fontScale)
   readonly property int captionSize: Math.round(13 * fontScale)
   readonly property int humanMessageSize: Math.round(21 * fontScale)
+  // The window's height, for capping the ask box at two thirds of it.
+  property real windowHeight: 0
+  // Two thirds of the window, but never so tall that the docked choices
+  // would be pushed out of this area (tier 1 stays on screen).
+  readonly property real maxAskHeight: Math.max(root.askLineHeight, Math.min(root.windowHeight * 2 / 3,
+    root.height - (root.singleColumn && !root.handled && root.rulingChoices.length > 0
+      ? dock.implicitHeight : 0)))
   readonly property real askLineHeight: Math.round((root.compactAsk ? 64 : 72) * root.fontScale)
   readonly property real bodyHorizontalPadding: Math.round((root.narrowLayout ? 20 : 28) * root.fontScale)
   readonly property real bodyTopPadding: Math.round((root.narrowLayout ? 16 : 22) * root.fontScale)
@@ -656,7 +668,7 @@ Item {
   }
 
   function updateDockedChoices() {
-    if (!root.narrowLayout || !root.showInlineChoices || !root.bodyVisible || !choiceBlock.visible) {
+    if (!root.singleColumn || !root.showInlineChoices || !root.bodyVisible || !choiceBlock.visible) {
       dockedChoicesVisible = false
       return
     }
@@ -719,7 +731,8 @@ Item {
     anchors.right: parent.right
     anchors.top: parent.top
     anchors.leftMargin: root.bodyHorizontalPadding
-    anchors.rightMargin: root.bodyHorizontalPadding
+    anchors.rightMargin: Math.max(root.bodyHorizontalPadding,
+      parent.width - root.bodyHorizontalPadding - root.readingMaxWidth)
     anchors.topMargin: root.bodyTopPadding
     height: root.bodyVisible ? Math.max(0, parent.height - root.bodyTopPadding
       - (root.dockedChoicesVisible ? dock.height : composer.height)) : 0
@@ -927,10 +940,45 @@ Item {
       }
 
       Item {
+        id: choiceHeading
+        width: parent.width
+        height: Math.round(24 * root.fontScale)
+        visible: choiceBlock.visible && root.showInlineChoices
+
+        Text {
+          id: choiceHeadingLabel
+          anchors.left: parent.left
+          anchors.verticalCenter: parent.verticalCenter
+          text: "DECIDE"
+          color: root.foreground
+          font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
+          font.pixelSize: root.captionSize
+          font.weight: Font.Medium
+          font.variableAxes: ({ "wght": 500 })
+          font.letterSpacing: Math.round(1.3 * root.fontScale)
+        }
+
+        Text {
+          anchors.left: choiceHeadingLabel.right
+          anchors.leftMargin: Math.round(12 * root.fontScale)
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          horizontalAlignment: Text.AlignRight
+          text: root.armedChoice >= 0 && root.armedChoice < root.rulingChoices.length
+            ? "⏎ to record \"" + root.rulingChoices[root.armedChoice].label + "\""
+            : "↑↓  ⏎ or a number"
+          color: root.secondary
+          font.family: root.monoFamily
+          font.pixelSize: root.captionSize
+          elide: Text.ElideRight
+        }
+      }
+
+      Item {
         id: choiceBlock
         width: parent.width
         property real choiceGap: Math.round(2 * root.fontScale)
-        visible: root.narrowLayout && !root.minimumMode && root.rulingChoices.length > 0
+        visible: root.singleColumn && !root.minimumMode && root.rulingChoices.length > 0
         height: root.showInlineChoices
           ? root.choiceStackHeight(choiceRepeater, choiceGap) : 0
         onHeightChanged: Qt.callLater(root.updateDockedChoices)
@@ -972,7 +1020,7 @@ Item {
 
       Text {
         width: parent.width
-        visible: root.narrowLayout && root.decisionStatus !== ""
+        visible: root.singleColumn && root.decisionStatus !== ""
           && root.decisionStatus.indexOf("Recording “") !== 0
         text: root.decisionStatus
         color: root.secondary
@@ -1233,13 +1281,13 @@ Item {
 
   DecisionCompactStrip {
     id: dock
-    visible: root.narrowLayout && !root.minimumMode && root.dockedChoicesVisible
+    visible: root.singleColumn && !root.minimumMode && root.dockedChoicesVisible
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.bottom: composer.top
     width: parent.width
     choices: root.rulingChoices
-    columns: 2
+    columns: root.dockColumns
     showLabel: true
     showExplain: true
     hint: root.decisionStatus !== ""
@@ -1272,56 +1320,85 @@ Item {
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.bottom: parent.bottom
-    height: root.askLineHeight
+    // Grows with the question, like the old composer, up to two thirds of
+    // the window; past that the text scrolls inside it.
+    readonly property real verticalPadding: Math.round(10 * root.fontScale)
+    height: Math.max(root.askLineHeight, Math.min(root.maxAskHeight,
+      input.implicitHeight + verticalPadding * 2))
     color: root.ground
     border.color: root.hairline
     border.width: 1
 
-    TextField {
-      id: input
+    Flickable {
+      id: inputScroll
       anchors.left: parent.left
       anchors.right: askKeycap.left
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
       anchors.leftMargin: Math.round(12 * root.fontScale)
       anchors.rightMargin: Math.round(10 * root.fontScale)
-      anchors.verticalCenter: parent.verticalCenter
-      height: Math.round(52 * root.fontScale)
-      color: root.accent
-      placeholderTextColor: root.secondary
-      placeholderText: "Ask about this request…"
-      font.family: root.newsreaderItalicFamily !== ""
-        ? root.newsreaderItalicFamily : root.newsreaderFamily
-      font.pixelSize: Math.round(34 * root.fontScale)
-      font.italic: true
-      selectByMouse: true
-      enabled: !root.handled && !root.sessionLost && (!root.waiting
-        || (root.steeringSupported && !root.steeringPending))
-      opacity: root.steeringPending ? 0.45 : 1
-      background: null
+      anchors.topMargin: composer.verticalPadding
+      anchors.bottomMargin: composer.verticalPadding
+      contentWidth: width
+      contentHeight: input.implicitHeight
+      clip: true
+      boundsBehavior: Flickable.StopAtBounds
+      interactive: contentHeight > height
 
-      Keys.onPressed: function(event) {
-        if (root.handleFontKey(event) || root.handleMotionTunerKey(event)
-            || root.handleScrollKey(event, true)) {
-          event.accepted = true
-          return
+      TextArea {
+        id: input
+        width: inputScroll.width
+        // Keep the caret in view once the text outgrows the box.
+        onCursorRectangleChanged: {
+          var top = cursorRectangle.y
+          var bottom = top + cursorRectangle.height
+          if (top < inputScroll.contentY) inputScroll.contentY = top
+          else if (bottom > inputScroll.contentY + inputScroll.height)
+            inputScroll.contentY = bottom - inputScroll.height
         }
-        if (event.key === Qt.Key_Tab) {
-          root.focusCycleRequested((event.modifiers & Qt.ShiftModifier) !== 0)
-          event.accepted = true
-        } else if (event.key === Qt.Key_Escape) {
-          root.askEscapeRequested()
-          event.accepted = true
-        } else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
-                   && !(event.modifiers & Qt.ShiftModifier)) {
-          if (root.send(input.text)) input.text = ""
-          event.accepted = true
-        } else if (event.key === Qt.Key_Y && root.pendingPermissionId !== ""
-                   && input.text === "") {
-          root.answerPermission(true)
-          event.accepted = true
-        } else if (event.key === Qt.Key_N && root.pendingPermissionId !== ""
-                   && input.text === "") {
-          root.answerPermission(false)
-          event.accepted = true
+        topPadding: 0
+        bottomPadding: 0
+        leftPadding: 0
+        rightPadding: 0
+        color: root.accent
+        placeholderTextColor: root.secondary
+        placeholderText: "Ask about this request…"
+        font.family: root.newsreaderItalicFamily !== ""
+          ? root.newsreaderItalicFamily : root.newsreaderFamily
+        font.pixelSize: Math.round(34 * root.fontScale)
+        font.italic: true
+        wrapMode: TextEdit.Wrap
+        selectByMouse: true
+        enabled: !root.handled && !root.sessionLost && (!root.waiting
+          || (root.steeringSupported && !root.steeringPending))
+        opacity: root.steeringPending ? 0.45 : 1
+        background: null
+
+        Keys.onPressed: function(event) {
+          if (root.handleFontKey(event) || root.handleMotionTunerKey(event)
+              || root.handleScrollKey(event, true)) {
+            event.accepted = true
+            return
+          }
+          if (event.key === Qt.Key_Tab) {
+            root.focusCycleRequested((event.modifiers & Qt.ShiftModifier) !== 0)
+            event.accepted = true
+          } else if (event.key === Qt.Key_Escape) {
+            root.askEscapeRequested()
+            event.accepted = true
+          } else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
+                     && !(event.modifiers & Qt.ShiftModifier)) {
+            if (root.send(input.text)) input.text = ""
+            event.accepted = true
+          } else if (event.key === Qt.Key_Y && root.pendingPermissionId !== ""
+                     && input.text === "") {
+            root.answerPermission(true)
+            event.accepted = true
+          } else if (event.key === Qt.Key_N && root.pendingPermissionId !== ""
+                     && input.text === "") {
+            root.answerPermission(false)
+            event.accepted = true
+          }
         }
       }
     }
@@ -1330,7 +1407,9 @@ Item {
       id: askKeycap
       anchors.right: parent.right
       anchors.rightMargin: Math.round(12 * root.fontScale)
-      anchors.verticalCenter: parent.verticalCenter
+      // Stays on the first line's row while the box grows.
+      anchors.top: parent.top
+      anchors.topMargin: Math.round((root.askLineHeight - height) / 2)
       width: Math.round(24 * root.fontScale)
       height: width
       text: "/"

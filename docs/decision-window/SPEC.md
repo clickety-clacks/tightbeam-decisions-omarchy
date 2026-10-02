@@ -17,14 +17,14 @@ evidence. Every layout decision follows from that order.
 
 | Tier | Contents | Place |
 |---|---|---|
-| 1. Always on screen | Who is asking (project, kind, when); the question in plain words; every ruling choice, each a button that explains itself; a way to ask | Pinned. Never scrolls away, never covered by anything else. |
+| 1. Always on screen | Who is asking (project, kind, when); the question in plain words; every ruling choice, each a button that explains itself; a way to ask | Header and ask line pinned; choices inline in the body, docked above the ask line whenever they are out of view. Never covered by anything else. |
 | 2. Primary reading | The brief: what happened, what is at stake, the explainer's recommendation | Top of the scrolling body |
 | 3. On demand | The conversation with the explainer | Continues below the brief |
 | 4. Reference | Identifiers (plan, request, assignment, work item); the original request verbatim | Identifiers: pinned footer line when there is room, else an `IDs ▾` menu in the header. Original request: a collapsed section at the end of the body. |
 
 Shrinking drops, it never squeezes: as space runs out, tiers leave from the
 bottom up (4, then 3, then 2). Tier 1 always stays whole; only the question
-clamps to fewer lines and choice explanations clamp (see Choice density).
+clamps to fewer lines, and choices dock as compact buttons.
 
 Nothing may ever paint over anything else. Every scrolling region clips, and no
 computed height may go below zero (the bug that started this redesign).
@@ -49,7 +49,7 @@ computed height may go below zero (the bug that started this redesign).
      as small outlined buttons under the reply that offered them.
    - `ORIGINAL REQUEST` (collapsed by default): raw question, note, subject,
      options as the agent wrote them.
-3. **Decide** (pinned; position depends on layout, see Layouts)
+3. **Decide** (in the body, right after the brief; docked when out of view)
    - Label `DECIDE` and a key hint (`↑↓ ⏎ or a number`).
    - One button per ruling choice (`rulingChoices()`: keep the existing filter,
      so effort requests offer only `continue` and `dismiss`). Each button holds:
@@ -58,8 +58,16 @@ computed height may go below zero (the bug that started this redesign).
        the explainer's `choice-effects` block when that arrives);
      - the agent's own option word, verbatim, in mono;
      - its number key, in a small keycap at the right.
-4. **Ask line** (pinned under the body, in the reading column)
+   - There is no decision sidebar (Mike, 2026-10-01): the buttons are the
+     explanation of each choice. Whenever they are not fully in view, a docked
+     strip of compact buttons (keycap + label) sits above the ask line, with
+     `explain choices ↑` to scroll back to them; that keeps every choice on
+     screen.
+4. **Ask line** (pinned under the body)
    - Placeholder `Ask about this request…`, keycap `/`.
+   - Multi-line: it grows with what Mike types, up to two thirds of the
+     window's height, then scrolls inside itself. Enter sends; Shift+Enter
+     starts a new line.
 5. **Footer** (pinned, full width, only when there is room)
    - Identifiers in mono: `plan <name> ↗` (opens the plan/work item),
      `request dr_…`, `assignment asg_…`, `work item wi_…`. Each is a button:
@@ -69,30 +77,17 @@ computed height may go below zero (the bug that started this redesign).
 
 ## Layouts
 
-Layout thresholds are window sizes in logical pixels and do not scale with
-the font scale (Ctrl +/−/0); a larger font scale is absorbed by choice density
-and headline clamping, not by switching to a smaller layout. Type sizes below
-are at font scale 1 and do scale.
+The layout follows what fits at the current font scale: a larger font scale
+docks the choices sooner and clamps the headline harder before the window
+falls back to Minimum. Type sizes below are at font scale 1 and scale.
 
 | Layout | When | Arrangement |
 |---|---|---|
-| Wide | width ≥ 720, height ≥ 360, and every choice fits the decide column at least as compact rows (otherwise Narrow) | Header across the top. Below it two columns: reading column (body + ask line) on the left; decide column on the right, 300–340 px (about 38% of the width), on a slightly tinted panel. Footer across the bottom when height ≥ 480; otherwise `IDs ▾` in the header. |
-| Narrow | width < 720 and height ≥ 360 | One column: header, body, ask line, footer. The full choice buttons sit in the body right after the brief. Whenever they are not fully visible (scrolled above or below the viewport), a docked decide strip appears above the ask line: compact buttons (keycap + label, two per row) plus `explain choices ↑`, which scrolls the full buttons into view. |
-| Minimum | height < 360, or neither Wide nor Narrow fits (Narrow needs its header, the docked choices, the ask line and about three lines of brief) | Header (question clamped to 3 lines, `IDs ▾`) and a decide strip only: compact buttons, three per row when width allows. Body, ask line and footer are hidden; the strip's hint reads `/ to ask · enlarge for the brief`. `/` shows the ask line above the strip; answers are read by enlarging the window. The window never resizes itself. |
+| Column | the window can hold the header, the docked choices, the ask line and about three lines of brief | One column: header, body (brief, choices, conversation, original request), ask line, footer when height ≥ 480 (otherwise `IDs ▾` in the header). The reading measure is capped near 70 characters (800 px at font scale 1). The docked strip uses three buttons per row from 720 px wide when the labels fit, otherwise two. |
+| Minimum | height < 360, or Column does not fit | Header (question clamped to the whole lines that fit, `IDs ▾`) and a decide strip only: compact buttons, three per row when labels fit or when two rows' worth would squeeze the question below one line. Body, ask line and footer are hidden; the strip's hint reads `/ to ask · enlarge for the brief`. `/` shows the ask line above the strip; answers are read by enlarging the window. The window never resizes itself. |
 
-Headline clamps: Wide 3 lines (1 line when height < 560), Narrow 4 lines,
-Minimum 3 lines; full text on hover.
-
-### Choice density (decide column)
-
-The decide column always shows every choice without scrolling. It picks the
-roomiest density at which all rows fit:
-
-1. Full: label, consequence (wraps), option word.
-2. Clamped: label, consequence on one line (elided), option word hidden.
-3. Compact: label only, one line.
-
-The full consequence is available on hover and focus in every density.
+Headline clamps: 3 lines (1 line when height < 560), 4 lines below 720 px
+wide; full text on hover.
 
 ## Interaction
 
@@ -131,17 +126,18 @@ files included) and load them with `FontLoader` in the window host. They apply
 to decision windows only; the bar and menus keep the theme font.
 
 Scale at font scale 1 (Mike, 2026-10-01: everything but the headline and the
-footer two sizes up from the mockups; the ask line twice its mockup size):
+footer two sizes up from the mockups, then body text two more; the ask line twice
+its mockup size):
 
 | Role | Face | Size / line height | Weight |
 |---|---|---|---|
 | Headline | Newsreader | 27 / 1.25 (21 when clamped to 1 line or Minimum, 22 Narrow) | 400 |
 | Section label (`BRIEF`, `DECIDE`), key hints | Plex Mono | 13, letter-spacing 0.12em, upper case | 500 |
 | Eyebrow | Plex Mono | 13, letter-spacing 0.12em, upper case | 500 (project in ink, the rest secondary) |
-| Body / answers | Plex Sans | 17 / 1.6, measure ≤ 70 characters | 400 |
+| Body / answers | Plex Sans | 19 / 1.6, measure ≤ 70 characters | 400 |
 | Mike's words | Newsreader italic | 21 in the body, 34 in the ask line | 400 |
-| Choice label | Plex Sans | 17 / 1.35 (16 compact) | 600 |
-| Choice consequence | Plex Sans | 15 / 1.45 | 400 |
+| Choice label | Plex Sans | 19 / 1.35 (16 compact) | 600 |
+| Choice consequence | Plex Sans | 17 / 1.45 | 400 |
 | Option word | Plex Mono | 13 | 400 |
 | Footer identifiers | Plex Mono | 11 | 400 |
 | Keycap | Plex Mono | 14, in a 24 px rounded square | 400 |

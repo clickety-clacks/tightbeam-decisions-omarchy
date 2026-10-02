@@ -45,7 +45,7 @@ Item {
     + (rawText.visible ? Math.round(3 * fontScale) + rawText.implicitHeight : 0)
     + (proposalText.visible ? Math.round(4 * fontScale) + proposalText.implicitHeight : 0)
     + verticalPadding
-  readonly property real clampedHeight: verticalPadding * 2 + Math.round((17 * 1.35 + 2 + 15 * 1.45) * fontScale)
+  readonly property real clampedHeight: verticalPadding * 2 + Math.round((19 * 1.35 + 2 + 17 * 1.45) * fontScale)
   readonly property real implicitRowHeight: density === "full"
     ? fullHeight : density === "clamped" ? clampedHeight : compactHeight
 
@@ -107,7 +107,7 @@ Item {
       : (root.proposed && root.density !== "full" ? "proposed · " + root.label : root.label)
     color: root.ink
     font.family: root.sansMediumFamily !== "" ? root.sansMediumFamily : root.sansFamily
-    font.pixelSize: Math.round((root.density === "compact" ? 16 : 17) * root.fontScale)
+    font.pixelSize: Math.round((root.density === "compact" ? 16 : 19) * root.fontScale)
     font.weight: Font.DemiBold
     font.variableAxes: ({ "wght": 600 })
     lineHeight: font.pixelSize * (root.density === "compact" ? 1.3 : 1.35)
@@ -126,7 +126,7 @@ Item {
     text: root.recording ? "Recording…" : root.effect
     color: root.secondary
     font.family: root.sansFamily
-    font.pixelSize: Math.round(15 * root.fontScale)
+    font.pixelSize: Math.round(17 * root.fontScale)
     lineHeight: font.pixelSize * 1.45
     lineHeightMode: Text.FixedHeight
     wrapMode: root.density === "full" ? Text.Wrap : Text.NoWrap

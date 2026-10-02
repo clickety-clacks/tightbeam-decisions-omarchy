@@ -36,7 +36,6 @@ FloatingWindow {
   property int armedChoice: -1
   property int focusedChoice: -1
   property int proposedChoice: -1
-  property int hoveredChoice: -1
   property bool choiceFocusActive: false
   property bool minimumAskRevealed: false
   property var choiceData: []
@@ -57,29 +56,19 @@ FloatingWindow {
   readonly property string monoFamily: owner.decisionPlexMonoFamily
   readonly property string monoMediumFamily: owner.decisionPlexMonoMediumFamily
 
-  // Narrow needs the header, the docked choices, the ask line and a few
-  // lines of brief; when that cannot fit, Minimum keeps question and choices.
+  // The single column needs the header, the docked choices, the ask line and
+  // a few lines of brief; when that cannot fit, Minimum keeps question and choices.
   readonly property bool narrowFits: {
     var scale = root.fontScale
     var header = (18 + 24 + 8 + 2 * 22 * 1.27 + 14) * scale
     var footer = root.height >= 480 ? 34 * scale : 0
     var ask = 64 * scale
-    var body = 3 * 17 * 1.6 * scale
-    return root.height - header - footer - ask - root.minimumStripHeightFor(2) - body >= 0
+    var body = 3 * 19 * 1.6 * scale
+    var dock = root.minimumStripHeightFor(root.width >= 720 ? 3 : 2)
+    return root.height - header - footer - ask - dock - body >= 0
   }
-  readonly property bool minimumLayout: root.height < 360 || (!root.wideLayout && !root.narrowFits)
-  // Wide needs every choice to fit its column at least as compact rows;
-  // estimated from window size alone so it cannot feed back into itself.
-  readonly property bool wideChoicesFit: {
-    var scale = root.fontScale
-    var lines = root.height < 560 ? 1 : 2
-    var header = (22 + 24 + 10 + lines * 27 * 1.25 + 20) * scale
-    var footer = root.height >= 480 ? 34 * scale : 0
-    var padding = (root.height < 480 ? 8 : 18) * scale
-    var needed = padding * 2 + 24 * scale + root.choiceData.length * 38 * scale
-    return root.height - header - footer >= needed
-  }
-  readonly property bool wideLayout: root.height >= 360 && root.width >= 720 && root.wideChoicesFit
+  readonly property bool minimumLayout: root.height < 360 || !root.narrowFits
+  readonly property bool wideLayout: !root.minimumLayout && root.width >= 720
   readonly property bool narrowLayout: !root.minimumLayout && !root.wideLayout
   readonly property bool footerRoom: !root.minimumLayout && root.height >= 480
   readonly property bool headerIdsVisible: !root.footerRoom
@@ -89,33 +78,26 @@ FloatingWindow {
     + Math.round((root.wideLayout ? 22 : root.narrowLayout ? 18 : 16) * root.fontScale)
     + Math.round((root.wideLayout ? 20 : root.narrowLayout ? 14 : 12) * root.fontScale)
   readonly property real footerHeight: root.footerRoom ? Math.round(34 * root.fontScale) : 0
-  readonly property real decideWidth: root.wideLayout
-    ? Math.min(340 * root.fontScale, Math.max(300 * root.fontScale, root.width * 0.38)) : 0
   readonly property real contentAreaHeight: Math.max(0,
     root.height - root.headerHeight - root.footerHeight)
   readonly property real headerHeight: root.minimumLayout
     ? Math.max(0, root.height - (root.handled ? minimumOutcome.height : minimumStrip.height)
       - (root.minimumAskRevealed ? chat.askLineHeight : 0))
     : root.headerContentHeight
-  readonly property real decidePanelHeight: root.contentAreaHeight
-  readonly property real decidePadding: Math.round((root.height < 480 ? 8 : 18) * root.fontScale)
-  readonly property real decideHeadingHeight: Math.round(24 * root.fontScale)
-  readonly property real decideContentWidth: Math.max(0, root.decideWidth - root.decidePadding * 2)
   readonly property bool decisionErrorVisible: decisionStatus !== ""
     && decisionStatus.indexOf("Recording “") !== 0
   readonly property real decisionStatusHeight: root.decisionErrorVisible
     ? Math.round(24 * root.fontScale) : 0
-  readonly property real decisionChoiceRoom: Math.max(0, root.decidePanelHeight
-    - root.decidePadding * 2 - root.decideHeadingHeight - root.decisionStatusHeight)
-  readonly property string choiceDensity: root.measureRepeaterHeight(fullMeasureRepeater) <= root.decisionChoiceRoom
-    ? "full" : root.measureRepeaterHeight(clampedMeasureRepeater) <= root.decisionChoiceRoom
-      ? "clamped" : "compact"
   readonly property string questionText: root.questionSummary !== ""
     ? root.questionSummary
     : root.request && root.displayText(root.request.subject) !== ""
       ? root.displayText(root.request.subject)
       : root.request ? String(root.request.question || "Decision requested") : "Decision requested"
   readonly property string projectText: root.displayProject()
+  // Width the eyebrow's three texts share: the line minus the dot, the
+  // actions and the gaps between them.
+  readonly property real eyebrowRoom: Math.max(0, headerColumn.width - eyebrowActions.width
+    - Math.round((8 + 10 + 10 + 8 + 10) * root.fontScale))
 
   implicitWidth: Math.round(960 * root.fontScale)
   implicitHeight: Math.round(720 * root.fontScale)
@@ -535,7 +517,6 @@ FloatingWindow {
     armedChoice = -1
     focusedChoice = -1
     proposedChoice = -1
-    hoveredChoice = -1
     choiceFocusActive = false
     minimumAskRevealed = false
     resetSummary()
@@ -561,7 +542,6 @@ FloatingWindow {
     replying = false
     selectedChoice = ""
     handled = true
-    hoveredChoice = -1
     decisionStatus = ""
     chat.handled = true
     chat.stop(false, false)
@@ -733,9 +713,8 @@ FloatingWindow {
           anchors.left: needsYouDot.right
           anchors.leftMargin: Math.round(10 * root.fontScale)
           anchors.verticalCenter: parent.verticalCenter
-          width: Math.min(180 * root.fontScale, implicitWidth,
-            Math.max(0, parent.width - x - eyebrowActions.width - eyebrowTime.width
-              - Math.round(28 * root.fontScale)))
+          // Shares the line by priority: project, then time, then kind.
+          width: Math.min(implicitWidth, root.eyebrowRoom * 0.5)
           text: root.projectText
           color: root.ink
           font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
@@ -752,8 +731,7 @@ FloatingWindow {
           anchors.leftMargin: Math.round(10 * root.fontScale)
           anchors.verticalCenter: parent.verticalCenter
           // The kind gives way first; project and time stay readable.
-          width: Math.min(implicitWidth, Math.max(0, parent.width - projectLabel.x - projectLabel.width
-            - eyebrowActions.width - eyebrowTime.implicitWidth - Math.round(38 * root.fontScale)))
+          width: Math.min(implicitWidth, Math.max(0, root.eyebrowRoom - projectLabel.width - eyebrowTime.width))
           text: "·  " + Kinds.info(root.request && root.request.kind).singular.toUpperCase()
           color: root.secondary
           font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
@@ -769,7 +747,7 @@ FloatingWindow {
           anchors.left: eyebrowKind.right
           anchors.leftMargin: Math.round(8 * root.fontScale)
           anchors.verticalCenter: parent.verticalCenter
-          width: implicitWidth
+          width: Math.min(implicitWidth, Math.max(0, root.eyebrowRoom - projectLabel.width))
           text: "·  " + root.formatRaisedAt(root.request && root.request.raisedAt)
           color: root.secondary
           font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
@@ -778,7 +756,6 @@ FloatingWindow {
           font.variableAxes: ({ "wght": 500 })
           font.letterSpacing: Math.round(1.3 * root.fontScale)
           elide: Text.ElideRight
-          horizontalAlignment: Text.AlignRight
         }
 
         Row {
@@ -957,10 +934,10 @@ FloatingWindow {
       ? (root.handled ? minimumOutcome.y : minimumStrip.y)
         - (root.minimumAskRevealed ? askLineHeight : 0)
       : contentArea.y
-    width: root.wideLayout ? Math.max(0, root.width - root.decideWidth) : root.width
+    width: root.width
     height: root.minimumLayout
       ? (root.minimumAskRevealed ? askLineHeight : 0) : Math.max(0, contentArea.height
-        - (root.narrowLayout && root.handled ? narrowOutcome.height : 0))
+        - (root.handled ? narrowOutcome.height : 0))
     visible: !root.minimumLayout || root.minimumAskRevealed
     request: root.request
     host: root.tbHost
@@ -995,7 +972,12 @@ FloatingWindow {
     narrowLayout: root.narrowLayout
     minimumMode: root.minimumLayout
     compactAsk: !root.wideLayout
-    showInlineChoices: root.narrowLayout && !root.handled
+    // Choices live in the body at every width (Mike, 2026-10-01): no sidebar.
+    windowHeight: root.height
+    singleColumn: !root.minimumLayout
+    dockColumns: root.wideLayout && root.longestChoiceLabelWidth()
+      <= (root.width - Math.round(32 * root.fontScale)) / 3 - Math.round(52 * root.fontScale) ? 3 : 2
+    showInlineChoices: !root.minimumLayout && !root.handled
     keyAction: function(event) { return root.handleKey(event) }
     bodyVisible: !root.minimumLayout
     askVisible: !root.minimumLayout || root.minimumAskRevealed
@@ -1011,218 +993,6 @@ FloatingWindow {
     onFontStepRequested: function(step) { root.owner.adjustFontScale(step) }
     onFontResetRequested: root.owner.setFontScale(1)
     onMotionTunerRequested: root.owner.openMotionTuner()
-  }
-
-  Rectangle {
-    id: decidePanel
-    visible: root.wideLayout
-    x: root.width - root.decideWidth
-    y: contentArea.y
-    width: root.decideWidth
-    height: contentArea.height
-    color: root.panel
-    clip: true
-
-    Column {
-      id: decideContents
-      x: root.decidePadding
-      y: root.decidePadding
-      width: Math.max(0, parent.width - root.decidePadding * 2)
-      height: Math.max(0, parent.height - root.decidePadding * 2)
-      spacing: 0
-
-      Item {
-        width: parent.width
-        height: root.decideHeadingHeight
-
-        Text {
-          anchors.left: parent.left
-          anchors.verticalCenter: parent.verticalCenter
-          id: decideLabel
-          text: "DECIDE"
-          color: root.ink
-          font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
-          font.pixelSize: Math.round(13 * root.fontScale)
-          font.weight: Font.Medium
-          font.variableAxes: ({ "wght": 500 })
-          font.letterSpacing: Math.round(1.3 * root.fontScale)
-        }
-
-        Text {
-          visible: !root.handled
-          anchors.left: decideLabel.right
-          anchors.leftMargin: Math.round(12 * root.fontScale)
-          anchors.right: parent.right
-          anchors.verticalCenter: parent.verticalCenter
-          horizontalAlignment: Text.AlignRight
-          text: root.armedChoice >= 0 && root.armedChoice < root.choiceData.length
-            ? "⏎ to record \"" + root.choiceData[root.armedChoice].label + "\""
-            : "↑↓  ⏎ or a number"
-          color: root.secondary
-          font.family: root.monoFamily
-          font.pixelSize: Math.round(13 * root.fontScale)
-          elide: Text.ElideRight
-        }
-      }
-
-      Item {
-        id: decideRows
-        width: parent.width
-        height: root.handled ? 0
-          : Math.max(0, parent.height - root.decideHeadingHeight - root.decisionStatusHeight)
-        clip: true
-        visible: !root.handled
-
-        Repeater {
-          id: decideRepeater
-          model: root.choiceData
-          delegate: DecisionChoice {
-            required property var modelData
-            required property int index
-            width: decideRows.width
-            y: root.stackOffset(decideRepeater, index, 0)
-            density: root.choiceDensity
-            label: String(modelData.label || "")
-            effect: String(modelData.effect || "")
-            rawOption: String(modelData.rawOption || "")
-            number: Number(modelData.number || index + 1)
-            armed: root.armedChoice === index
-            focused: root.focusedChoice === index
-            focusActive: root.choiceFocusActive
-            proposed: root.proposedChoice === index
-            recording: root.replying && String(modelData.rawOption || "") === root.selectedChoice
-            interactive: !root.replying && !root.handled
-            fontScale: root.fontScale
-            sansFamily: root.sansFamily
-            sansMediumFamily: root.sansFamily
-            monoFamily: root.monoFamily
-            ground: root.ground
-            ink: root.ink
-            secondary: root.secondary
-            faint: root.faint
-            hairline: root.hairline
-            keyBorder: root.keyBorder
-            tooltipsEnabled: true
-            onConsequenceHovered: function(hovered) {
-              root.hoveredChoice = hovered ? index
-                : (root.hoveredChoice === index ? -1 : root.hoveredChoice)
-            }
-            onFocusedByUser: root.focusChoice(index)
-            onActivated: root.submitChoiceByIndex(index)
-          }
-        }
-      }
-
-      Text {
-        id: decisionError
-        width: parent.width
-        height: root.handled ? 0 : root.decisionStatusHeight
-        visible: root.decisionErrorVisible
-        text: root.decisionStatus
-        color: root.secondary
-        font.family: root.monoFamily
-        font.pixelSize: Math.round(13 * root.fontScale)
-        elide: Text.ElideRight
-        verticalAlignment: Text.AlignVCenter
-      }
-
-      DecisionOutcome {
-        visible: root.handled
-        width: parent.width
-        height: root.handled ? Math.max(0, parent.height - root.decideHeadingHeight) : 0
-        status: root.handledStatus
-        actor: root.handledActor
-        determination: root.handledDetermination
-        fontScale: root.fontScale
-        sansFamily: root.sansFamily
-        monoFamily: root.monoFamily
-        foreground: root.ink
-        secondary: root.secondary
-        hairline: root.hairline
-        background: root.panel
-      }
-    }
-  }
-
-  DecisionConsequenceTip {
-    id: wideChoiceTip
-    anchorItem: root.wideLayout && !root.replying && !root.handled
-      && root.choiceDensity !== "full"
-      && root.hoveredChoice >= 0 ? decideRepeater.itemAt(root.hoveredChoice) : null
-    boundsItem: decidePanel
-    consequence: root.hoveredChoice >= 0 && root.hoveredChoice < root.choiceData.length
-      ? String(root.choiceData[root.hoveredChoice].effect || "") : ""
-    sansFamily: root.sansFamily
-    fontScale: root.fontScale
-  }
-
-  Item {
-    id: fullMeasure
-    opacity: 0
-    x: -10000
-    y: -10000
-    width: root.decideContentWidth
-    Repeater {
-      id: fullMeasureRepeater
-      model: root.choiceData
-      delegate: DecisionChoice {
-        required property var modelData
-        required property int index
-        width: fullMeasure.width
-        density: "full"
-        label: String(modelData.label || "")
-        effect: String(modelData.effect || "")
-        rawOption: String(modelData.rawOption || "")
-        number: Number(modelData.number || index + 1)
-        proposed: root.proposedChoice === index
-        interactive: false
-        tooltipsEnabled: false
-        fontScale: root.fontScale
-        sansFamily: root.sansFamily
-        sansMediumFamily: root.sansFamily
-        monoFamily: root.monoFamily
-        ground: root.ground
-        ink: root.ink
-        secondary: root.secondary
-        faint: root.faint
-        hairline: root.hairline
-        keyBorder: root.keyBorder
-      }
-    }
-  }
-
-  Item {
-    id: clampedMeasure
-    opacity: 0
-    x: -10000
-    y: -10000
-    width: root.decideContentWidth
-    Repeater {
-      id: clampedMeasureRepeater
-      model: root.choiceData
-      delegate: DecisionChoice {
-        required property var modelData
-        required property int index
-        width: clampedMeasure.width
-        density: "clamped"
-        label: String(modelData.label || "")
-        effect: String(modelData.effect || "")
-        rawOption: String(modelData.rawOption || "")
-        number: Number(modelData.number || index + 1)
-        interactive: false
-        tooltipsEnabled: false
-        fontScale: root.fontScale
-        sansFamily: root.sansFamily
-        sansMediumFamily: root.sansFamily
-        monoFamily: root.monoFamily
-        ground: root.ground
-        ink: root.ink
-        secondary: root.secondary
-        faint: root.faint
-        hairline: root.hairline
-        keyBorder: root.keyBorder
-      }
-    }
   }
 
   DecisionCompactStrip {
@@ -1265,7 +1035,7 @@ FloatingWindow {
 
   DecisionOutcome {
     id: narrowOutcome
-    visible: root.narrowLayout && root.handled
+    visible: !root.minimumLayout && root.handled
     x: 0
     y: contentArea.y + Math.max(0, contentArea.height - height)
     width: root.width
