@@ -5,7 +5,9 @@ Mockups: `mockups/*.png` (rendered) and `mockups/*.html` (source). The live
 canvas is https://claude.ai/artifact/Krk7kbbFueDi7X2ZAPocye (private to Mike).
 
 The mockups use one real request with six options as the stress case. Content
-in them is illustrative; the rules below are what to build.
+in them is illustrative; the rules below are what to build. Since the mockups,
+the decide column moved into the body (Regions, Decide), type grew, and windows
+open at 3:4.
 
 ## Purpose
 

@@ -145,14 +145,16 @@ from the bar, a notification or the `show-decision-request` skill, brings that
 window to you instead of opening a second. The settings window (Ctrl+,) works
 the same way.
 
-The decision window keeps the question and every ruling visible while the brief
-and conversation scroll. Wide windows put the full choice rows in a fixed
-right-hand decide column; Narrow windows put them after the brief and dock a
-compact strip when they scroll away; Minimum windows keep only the clamped
-question and compact choices. Number keys arm a choice, Enter records an armed
-choice, clicks record directly, `/` focuses the ask line, and the identifiers
-footer (or `IDs ▾` header menu) copies full IDs. Re-summarize refreshes the
-brief and explainer without changing the request or its transport.
+The decision window keeps the question and every ruling choice on screen while
+the brief and conversation scroll. The choice buttons sit in the body right
+after the brief, each with its consequence and number key; when they scroll out
+of view a compact strip of them docks above the ask box. Windows too small for
+that keep only the question and the compact choices. ↑↓ or a number key arms a
+choice, Enter records it, clicks record directly, `/` focuses the ask box (which
+grows to two thirds of the window), and the identifiers footer (or the `IDs ▾`
+header menu) copies full IDs. Re-summarize refreshes the brief and explainer
+without changing the request. Windows open at 3:4. The design is
+`docs/decision-window/SPEC.md`.
 
 The host is a long-lived service, so its environment is fixed when it starts,
 which can be before the desktop has exported the user's `PATH`. It runs node
@@ -209,7 +211,7 @@ machine-specific: it opens the local plugin configured for Gibson as Mike.
 | `WindowHost.qml` | Independent process that owns decision windows and polls their status |
 | `decision-window-host.sh` | Starts the window host and forwards open requests over IPC |
 | `DecisionWindow.qml` | Standalone decision detail window (design: `docs/decision-window/SPEC.md`) |
-| `DecisionChoice.qml` | Density-aware ruling choice row used by the decide regions |
+| `DecisionChoice.qml` | One ruling choice: label, consequence, option word and key |
 | `DecisionCompactStrip.qml` | Compact two- or three-column choice dock/strip |
 | `DecisionConsequenceTip.qml` | Single row-anchored consequence tooltip for compact choices |
 | `DecisionOutcome.qml` | Inline handled-outcome region |
