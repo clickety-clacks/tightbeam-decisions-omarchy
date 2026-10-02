@@ -144,6 +144,20 @@ FloatingWindow {
     return total
   }
 
+  FontMetrics {
+    id: choiceLabelMetrics
+    font.family: root.sansFamily
+    font.pixelSize: Math.round(14 * root.fontScale)
+    font.variableAxes: ({ "wght": 600 })
+  }
+
+  function longestChoiceLabelWidth() {
+    var widest = 0
+    for (var index = 0; index < choiceData.length; index++)
+      widest = Math.max(widest, choiceLabelMetrics.advanceWidth(String(choiceData[index].label || "")))
+    return widest
+  }
+
   function script(name) { return owner.script(name) }
   function handleFontKey(event) { return owner.handleFontKey(event) }
   function copyToClipboard(value) { owner.copyToClipboard(value) }
@@ -692,9 +706,10 @@ FloatingWindow {
           id: eyebrowKind
           anchors.left: projectLabel.right
           anchors.leftMargin: Math.round(10 * root.fontScale)
-          anchors.right: eyebrowTime.left
-          anchors.rightMargin: Math.round(8 * root.fontScale)
           anchors.verticalCenter: parent.verticalCenter
+          // The kind gives way first; project and time stay readable.
+          width: Math.min(implicitWidth, Math.max(0, parent.width - projectLabel.x - projectLabel.width
+            - eyebrowActions.width - eyebrowTime.implicitWidth - Math.round(38 * root.fontScale)))
           text: "·  " + Kinds.info(root.request && root.request.kind).singular.toUpperCase()
           color: root.secondary
           font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
@@ -707,11 +722,10 @@ FloatingWindow {
 
         Text {
           id: eyebrowTime
-          anchors.right: eyebrowActions.left
-          anchors.rightMargin: Math.round(10 * root.fontScale)
+          anchors.left: eyebrowKind.right
+          anchors.leftMargin: Math.round(8 * root.fontScale)
           anchors.verticalCenter: parent.verticalCenter
-          width: Math.min(implicitWidth, Math.max(0, parent.width
-            - eyebrowActions.width - Math.round(10 * root.fontScale)))
+          width: implicitWidth
           text: "·  " + root.formatRaisedAt(root.request && root.request.raisedAt)
           color: root.secondary
           font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
@@ -794,8 +808,14 @@ FloatingWindow {
       Text {
         id: headline
         width: parent.width
-        height: Math.min(implicitHeight,
-          Math.round(font.pixelSize * 1.25 * root.headlineLines))
+        // In Minimum the strip takes what it needs and the question gets the
+        // rest, so clamp to the whole lines that fit there (elided, never cut).
+        readonly property int fittedLines: root.minimumLayout
+          ? Math.max(1, Math.min(root.headlineLines, Math.floor((root.headerHeight - headerColumn.y
+            - eyebrow.height - headerColumn.spacing - Math.round(12 * root.fontScale))
+            / (font.pixelSize * 1.25))))
+          : root.headlineLines
+        height: Math.min(implicitHeight, Math.round(font.pixelSize * 1.25 * fittedLines))
         text: root.questionText
         color: root.ink
         font.family: root.newsreaderFamily
@@ -805,7 +825,7 @@ FloatingWindow {
         lineHeight: font.pixelSize * 1.25
         lineHeightMode: Text.FixedHeight
         wrapMode: Text.WordWrap
-        maximumLineCount: root.headlineLines
+        maximumLineCount: fittedLines
         elide: Text.ElideRight
 
         HoverHandler { id: headlineHover }
@@ -1162,7 +1182,9 @@ FloatingWindow {
     x: 0
     y: root.height - height
     width: root.width
-    columns: root.width >= 480 ? 3 : 2
+    // Three per row only when the longest label still fits; otherwise two.
+    columns: root.width >= 480 && root.longestChoiceLabelWidth()
+      <= (root.width - Math.round(32 * root.fontScale)) / 3 - Math.round(52 * root.fontScale) ? 3 : 2
     showLabel: true
     showExplain: false
     hint: root.decisionErrorVisible ? root.decisionStatus : "/ to ask · enlarge for the brief"

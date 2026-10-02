@@ -283,7 +283,7 @@ Item {
     if (!request) return
     if (agent.running) stop(false, true)
     messages.clear()
-    messages.append({ role: "Claude", body: "", choices: [] })
+    messages.append({ role: "Claude", body: "", choices: "[]" })
     briefTldr = ""
     briefRecommendation = ""
     headerSummary = ""
@@ -346,11 +346,11 @@ Item {
       if (!steeringSupported || steeringPending || !bridgeReady || !agent.running) return false
       steeringPending = true
       statusText = "Steering…"
-      messages.append({ role: "You", body: value, choices: [] })
+      messages.append({ role: "You", body: value, choices: "[]" })
       submittedPromptIndex = messages.count - 1
       submittedPromptSpaceActive = true
       submittedPromptY = 0
-      messages.append({ role: "Claude", body: "", choices: [] })
+      messages.append({ role: "Claude", body: "", choices: "[]" })
       activeReply = messages.count - 1
       activeReplyMessageId = ""
       agent.write(JSON.stringify({ type: "steer", text: value }) + "\n")
@@ -360,11 +360,11 @@ Item {
     proposedRule = -1
     waiting = true
     statusText = "Thinking…"
-    messages.append({ role: "You", body: value, choices: [] })
+    messages.append({ role: "You", body: value, choices: "[]" })
     submittedPromptIndex = messages.count - 1
     submittedPromptSpaceActive = true
     submittedPromptY = 0
-    messages.append({ role: "Claude", body: "", choices: [] })
+    messages.append({ role: "Claude", body: "", choices: "[]" })
     activeReply = messages.count - 1
     activeReplyMessageId = ""
     queuedPrompt = value
@@ -391,7 +391,7 @@ Item {
     if (activeReply < 0 || activeReply >= messages.count || text === "") return
     var next = String(messageId || "")
     if (next !== "" && activeReplyMessageId !== "" && next !== activeReplyMessageId) {
-      messages.append({ role: "Claude", body: "", choices: [] })
+      messages.append({ role: "Claude", body: "", choices: "[]" })
       activeReply = messages.count - 1
     }
     if (next !== "") activeReplyMessageId = next
@@ -506,7 +506,7 @@ Item {
     }
     if (effectsFound) choiceEffects = effects
     if (activeReply >= 0 && activeReply < messages.count)
-      messages.setProperty(activeReply, "choices", conversationChoices)
+      messages.setProperty(activeReply, "choices", JSON.stringify(conversationChoices))
     proposedRule = rule
     if (changed || conversationChoices.length > 0 || effectsFound || rule >= 0)
       messages.setProperty(activeReply, "body", body)
@@ -1025,7 +1025,12 @@ Item {
             Item {
               id: conversationChoices
               width: parent.width
-              property var messageChoices: choices || []
+              // Stored as JSON: a ListModel turns an array role into a nested
+              // model, which has no length and would never show its buttons.
+              property var messageChoices: {
+                try { var parsed = JSON.parse(String(choices || "[]")); return Array.isArray(parsed) ? parsed : [] }
+                catch (error) { return [] }
+              }
               property real choiceGap: Math.round(6 * root.fontScale)
               visible: messageChoices.length > 0
               height: visible ? messageChoices.length * Math.round(32 * root.fontScale)
