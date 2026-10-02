@@ -30,6 +30,22 @@ ShellRoot {
   readonly property int titleSize: Math.round(Style.font.title * fontScale)
   readonly property bool motionTunerOpen: motionTuner.visible
 
+  // These faces belong to decision windows only. The bar and its menus keep
+  // using Omarchy's theme font; keeping the loaders here also makes the
+  // bundled files available before a window is first presented.
+  FontLoader { id: decisionNewsreader; source: Qt.resolvedUrl("fonts/Newsreader[opsz,wght].ttf") }
+  FontLoader { id: decisionNewsreaderItalic; source: Qt.resolvedUrl("fonts/Newsreader-Italic[opsz,wght].ttf") }
+  FontLoader { id: decisionPlexSans; source: Qt.resolvedUrl("fonts/IBMPlexSans[wdth,wght].ttf") }
+  FontLoader { id: decisionPlexSansItalic; source: Qt.resolvedUrl("fonts/IBMPlexSans-Italic[wdth,wght].ttf") }
+  FontLoader { id: decisionPlexMono; source: Qt.resolvedUrl("fonts/IBMPlexMono-Regular.ttf") }
+  FontLoader { id: decisionPlexMonoMedium; source: Qt.resolvedUrl("fonts/IBMPlexMono-Medium.ttf") }
+  readonly property string decisionNewsreaderFamily: decisionNewsreader.name
+  readonly property string decisionNewsreaderItalicFamily: decisionNewsreaderItalic.name
+  readonly property string decisionPlexSansFamily: decisionPlexSans.name
+  readonly property string decisionPlexSansItalicFamily: decisionPlexSansItalic.name
+  readonly property string decisionPlexMonoFamily: decisionPlexMono.name
+  readonly property string decisionPlexMonoMediumFamily: decisionPlexMonoMedium.name
+
   function mixColor(from, to, amount) {
     return Qt.rgba(from.r + (to.r - from.r) * amount,
                    from.g + (to.g - from.g) * amount,

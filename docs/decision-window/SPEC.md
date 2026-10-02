@@ -1,6 +1,6 @@
 # Decision window: design spec
 
-Status: approved design (Mike, 2026-10-01), not yet implemented.
+Status: implemented (Mike-approved design, 2026-10-01).
 Mockups: `mockups/*.png` (rendered) and `mockups/*.html` (source). The live
 canvas is https://claude.ai/artifact/Krk7kbbFueDi7X2ZAPocye (private to Mike).
 
@@ -69,8 +69,10 @@ computed height may go below zero (the bug that started this redesign).
 
 ## Layouts
 
-Sizes are logical pixels at font scale 1 and scale with the window's font
-scale (Ctrl +/−/0).
+Layout thresholds are window sizes in logical pixels and do not scale with
+the font scale (Ctrl +/−/0); a larger font scale is absorbed by choice density
+and headline clamping, not by switching to a smaller layout. Type sizes below
+are at font scale 1 and do scale.
 
 | Layout | When | Arrangement |
 |---|---|---|

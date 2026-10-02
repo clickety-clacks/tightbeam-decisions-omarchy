@@ -5,93 +5,79 @@ import Quickshell.Io
 import qs.Commons
 import qs.Ui
 
-// A conversation about ONE decision request, driven by the local ACP agent.
-//
-// The agent explains the request and proposes an answer; it never records the
-// ruling itself. It asks for a choice by emitting a fenced block:
-//
-//   ```choices          ```rule
-//   option one          2
-//   option two          ```
-//   ```
-//
-// A `choices` line that names one of the request's options is a RULING button:
-// clicking it calls ruleRequested(label) and the panel records it. Any other line is
-// conversation and is sent back as the next prompt. `rule` produces the same
-// ruling button when the agent wants to propose one after discussion. The agent
-// never records anything itself — the click does.
+// The conversation owns the ACP session and the reading column. The ruling
+// controls live in DecisionWindow, so asking can grow below the brief without
+// ever moving or covering a choice.
 Item {
   id: root
 
   property var request: null
-  // Blank host: the CLI runs on this machine. Blank user: whatever account
-  // the CLI runs as. Both are resolved by tightbeam.sh, not assumed here.
   property string host: ""
   property string user: ""
   property string messageScript: ""
-  property bool decisionBusy: false
-  // Driven by the panel so the window and the dropdown always match.
   property real fontScale: 1
-  readonly property int captionSize: Math.round(Style.font.caption * fontScale)
-  readonly property int bodySize: Math.round(Style.font.body * fontScale)
-  readonly property int titleSize: Math.round(Style.font.title * fontScale)
-  readonly property int displaySize: Math.round(Style.font.display * fontScale)
-  readonly property int humanMessageSize: Math.max(titleSize, Math.round(bodySize * 1.5))
-  readonly property string hostLabel: host === "" ? "this machine" : "the " + host + " gateway"
-  readonly property string quotedHost: host === "" ? "\"\"" : host
-  readonly property string quotedUser: user === "" ? "\"\"" : user
-  // Read-only lookups: run the CLI directly when this machine is the node,
-  // otherwise hop over ssh. --as-user is only pinned when it was configured.
-  readonly property string lookupCommand: (host === "" ? "tightbeam" : "ssh " + host + " tightbeam")
-    + (user === "" ? "" : " --as-user " + user)
-  // Owned by this plugin; the bridge reads role/model configuration itself.
-  readonly property string bridgePath: Qt.resolvedUrl("bridge/bridge.js").toString().replace(/^file:\/\//, "")
-  readonly property string nodePath: Qt.resolvedUrl("bridge/node.sh").toString().replace(/^file:\/\//, "")
-  function bridgeCommand() {
-    return ["env", "HUGINN_INTERNAL=1", nodePath, bridgePath]
-  }
+  property string newsreaderFamily: ""
+  property string newsreaderItalicFamily: ""
+  property string sansFamily: ""
+  property string sansItalicFamily: ""
+  property string monoFamily: ""
+  property string monoMediumFamily: ""
+  property color ground: Color.background
+  property color foreground: Color.foreground
+  property color secondary: Color.foreground
+  property color faint: Color.foreground
+  property color hairline: Color.foreground
+  property color keyBorder: Color.foreground
+  property color accent: Color.urgent
 
-  // Report an incomplete decision-request installation explicitly.
-  property bool bridgeMissing: false
-
-  FileView {
-    path: root.bridgePath
-    printErrors: false
-    onLoaded: root.bridgeMissing = false
-    onLoadFailed: root.bridgeMissing = true
-  }
-
+  // DecisionWindow supplies the filtered ruling options. The raw option is
+  // authoritative; labels and effects are display-only content.
+  property var rulingChoices: []
+  property var summaryChoiceLabels: []
+  property var summaryChoiceEffects: []
+  property string summaryParent: ""
+  property string summaryNotes: ""
+  property int armedChoice: -1
+  property int focusedChoice: -1
+  property int proposedChoice: -1
+  property bool recording: false
+  property bool handled: false
+  property bool narrowLayout: false
+  property bool minimumMode: false
+  property bool compactAsk: false
+  property bool showInlineChoices: false
+  property bool bodyVisible: true
+  property bool askVisible: true
+  property string recordingChoice: ""
+  property var keyAction: null
+  property var ruleAction: null
 
   signal ruleRequested(string choiceLabel)
   signal headerSummaryReady(string summary)
   signal assistantMessageFinished()
-  // DecisionWindow supplies this callback so ruling buttons can invoke the
-  // recorder directly. Keep the signal as a fallback for embedders that do
-  // not provide one.
-  property var ruleAction: null
-  // The panel owns the scale; the chat only asks for a change. Routed as
-  // signals because a focused TextEdit or TextArea claims Ctrl +/- before any
-  // window-level handler sees it.
+  signal choiceFocused(int index)
+  signal focusCycleRequested(bool backwards)
+  signal askEscapeRequested()
   signal fontStepRequested(real step)
   signal fontResetRequested()
   signal motionTunerRequested()
-  property real keyboardLineImpulse: 335
-  property real keyboardPageImpulse: 689
-  property real keyboardDeceleration: 608
-  property bool motionTunerOpen: false
-  onMotionTunerOpenChanged: if (!motionTunerOpen && visible)
-    Qt.callLater(function() { input.forceActiveFocus() })
-  property real keyboardVelocityY: 0
-  property double keyboardSampleTime: 0
 
-  function handleFontKey(event) {
-    if ((event.modifiers & Qt.ControlModifier) === 0) return false
-    if (event.key === Qt.Key_Plus || event.key === Qt.Key_Equal) { fontStepRequested(0.1); return true }
-    if (event.key === Qt.Key_Minus || event.key === Qt.Key_Underscore) { fontStepRequested(-0.1); return true }
-    if (event.key === Qt.Key_0) { fontResetRequested(); return true }
-    return false
-  }
+  readonly property int bodySize: Math.round(15 * fontScale)
+  readonly property int captionSize: Math.round(11 * fontScale)
+  readonly property int humanMessageSize: Math.round(19 * fontScale)
+  readonly property real askLineHeight: Math.round((root.compactAsk ? 42 : 52) * root.fontScale)
+  readonly property real bodyHorizontalPadding: Math.round((root.narrowLayout ? 20 : 28) * root.fontScale)
+  readonly property real bodyTopPadding: Math.round((root.narrowLayout ? 16 : 22) * root.fontScale)
+  readonly property string hostLabel: host === "" ? "this machine" : "the " + host + " gateway"
+  readonly property string quotedHost: host === "" ? "\"\"" : host
+  readonly property string quotedUser: user === "" ? "\"\"" : user
+  readonly property string lookupCommand: (host === "" ? "tightbeam" : "ssh " + host + " tightbeam")
+    + (user === "" ? "" : " --as-user " + user)
+  readonly property string bridgePath: Qt.resolvedUrl("bridge/bridge.js").toString().replace(/^file:\/\//, "")
+  readonly property string nodePath: Qt.resolvedUrl("bridge/node.sh").toString().replace(/^file:\/\//, "")
+  readonly property bool askActive: input.activeFocus
 
+  property bool bridgeMissing: false
   property bool bridgeReady: false
   property bool waiting: false
   property bool steeringSupported: false
@@ -105,35 +91,72 @@ Item {
   property string queuedPrompt: ""
   property string pendingPermissionId: ""
   property string pendingPermissionTitle: ""
-  property var choices: []
-  // Display-only rewrites from the lightweight summary agent. The exact
-  // request options remain authoritative and are what ruleRequested emits.
-  property var rulingChoiceLabels: []
   property int proposedRule: -1
   property int submittedPromptIndex: -1
   property bool submittedPromptSpaceActive: false
   property real submittedPromptY: 0
+  property string briefTldr: ""
+  property string briefRecommendation: ""
+  property string headerSummary: ""
+  property var choiceEffects: []
+  property bool originalExpanded: false
+  property bool dockedChoicesVisible: false
+  property real keyboardVelocityY: 0
+  property double keyboardSampleTime: 0
 
-  readonly property color foreground: Color.foreground
-  readonly property color accent: Color.accent
-  // Secondary text is derived from the theme's own surface and foreground
-  // instead of read from the shell's muted role. Omarchy falls back to color8
-  // when a theme omits `muted`, and color8 is terminal "bright black" -- a dim
-  // value that assumes a dark background. Under a light theme it lands next to
-  // the surface: 1.4:1 here, which is unreadable. Mixing the surface toward the
-  // foreground is correct in both directions -- about 3.8:1 on a light theme
-  // and 8.6:1 on a dark one -- and stays clearly weaker than full foreground.
+  function bridgeCommand() { return ["env", "HUGINN_INTERNAL=1", nodePath, bridgePath] }
+  function handleGlobalKey(event) {
+    return typeof root.keyAction === "function" && root.keyAction(event)
+  }
+
+  function choiceStackHeight(repeater, gap) {
+    var total = 0
+    for (var index = 0; index < repeater.count; index++) {
+      var item = repeater.itemAt(index)
+      if (item) total += Math.max(0, Number(item.height || item.implicitHeight || 0))
+    }
+    return total + Math.max(0, repeater.count - 1) * Math.max(0, gap)
+  }
+
+  function choiceStackOffset(repeater, index, gap) {
+    var offset = 0
+    for (var row = 0; row < index; row++) {
+      var item = repeater.itemAt(row)
+      if (item) offset += Math.max(0, Number(item.height || item.implicitHeight || 0))
+    }
+    return offset + Math.max(0, index) * Math.max(0, gap)
+  }
+
+  FileView {
+    path: root.bridgePath
+    printErrors: false
+    onLoaded: root.bridgeMissing = false
+    onLoadFailed: root.bridgeMissing = true
+  }
+
   function mixColor(from, to, amount) {
     return Qt.rgba(from.r + (to.r - from.r) * amount,
                    from.g + (to.g - from.g) * amount,
-                   from.b + (to.b - from.b) * amount,
-                   1)
+                   from.b + (to.b - from.b) * amount, 1)
   }
-  readonly property color surface: Color.background
-  readonly property color muted: mixColor(surface, foreground, 0.85)
 
-  // Qt collapses ordinary Markdown paragraph gaps. Preserve them for display
-  // without changing the message stored in the conversation model.
+  function handleFontKey(event) {
+    if ((event.modifiers & Qt.ControlModifier) === 0) return false
+    if (event.key === Qt.Key_Plus || event.key === Qt.Key_Equal) {
+      fontStepRequested(0.1)
+      return true
+    }
+    if (event.key === Qt.Key_Minus || event.key === Qt.Key_Underscore) {
+      fontStepRequested(-0.1)
+      return true
+    }
+    if (event.key === Qt.Key_0) {
+      fontResetRequested()
+      return true
+    }
+    return false
+  }
+
   function spacedMarkdown(text) {
     var value = String(text || "")
     if (value.indexOf("\n") < 0) return value
@@ -163,6 +186,9 @@ Item {
     var options = request && request.options ? request.options : []
     var numbered = []
     for (var i = 0; i < options.length; i++) numbered.push((i + 1) + ". " + options[i])
+    var effectsExample = []
+    for (var optionIndex = 0; optionIndex < options.length; optionIndex++)
+      effectsExample.push((optionIndex + 1) + ". one sentence explaining the consequence of choosing " + options[optionIndex])
     return [
       "You are explaining one Tightbeam decision request to Mike, on his desktop.",
       "",
@@ -174,7 +200,7 @@ Item {
       "",
       "WHAT THIS REQUEST BELONGS TO: " + (request && request.subject ? request.subject : "unstated"),
       (request && request.workItemId
-        ? "Its work item is " + request.workItemId + ". Read that item first -- it is the"
+        ? "Its work item is " + request.workItemId + ". Read that item first — it is the"
         : "No work item is linked. Establish from the assignment what work this serves"),
       (request && request.workItemId
         ? "fastest way to learn which project this is and why the question exists."
@@ -196,16 +222,20 @@ Item {
       "",
       "THEN ANSWER AS CLEAN, POLISHED MARKDOWN IN EXACTLY THIS SHAPE:",
       "```header-summary",
-      "A 4-10 word plain-language label for the decision. This goes in the compact",
-      "window header, so make it much shorter than the TL;DR. No ids or jargon.",
+      "A 4-10 word plain-language label for the decision. This goes in internal",
+      "conversation metadata; make it much shorter than the TL;DR. No ids or jargon.",
       "```",
       "## TL;DR",
-      "One or two short sentences in plain words. No Tightbeam jargon or ids.",
-      "## What the options mean",
-      "Use one concise bullet per option. Bold the option label, then explain what",
-      "choosing it actually causes — consequences and tradeoffs, not a restatement.",
+      "One or two short sentences in plain words. Say what happened and what is at stake.",
+      "No Tightbeam jargon or ids.",
       "## Recommendation",
       "State your recommendation directly, followed by any real uncertainty.",
+      "```choice-effects",
+      effectsExample.length > 0 ? effectsExample.join("\n") : "<number>. one sentence explaining the consequence",
+      "```",
+      "The choice-effects block MUST contain exactly one '<number>. <one sentence>'",
+      "line per option, in order. Do not add a 'What the options mean' section: the",
+      "choice buttons already carry those consequences.",
       "Use short paragraphs, helpful bold emphasis, and lists where appropriate.",
       "Do not output raw JSON, HTML, a preamble, or a heading for the request itself.",
       "Keep it short. He is reading this in a small window, not a report.",
@@ -216,13 +246,14 @@ Item {
       "options — 'shall I read the PR diff?' is a fine use.",
       "",
       "IMPORTANT: a line that exactly matches one of the request's option labels",
-      "RECORDS that ruling the moment he clicks it. So only write an exact label when",
-      "clicking it should settle the request. If you are merely asking about an option,",
-      "word it as a question ('lean toward accept?') so it stays a conversation.",
+      "is a ruling option. Only write an exact label when clicking it should settle",
+      "the request. If you are merely asking about an option, word it as a question",
+      "so it stays a conversation.",
       "",
       "RECORDING THE ANSWER: a human or its explicit delegate closes the row. By default",
       "that is him. When you and he have agreed, end your message with a fenced block",
-      "tagged `rule` containing ONLY the option number. That gives him a confirm button.",
+      "tagged `rule` containing ONLY the option number. That arms the matching choice",
+      "for his confirmation; it does not record the ruling itself.",
       "Never emit `rule` before he has actually agreed.",
       "",
       "He may instead delegate the recording to you. If he does so explicitly, in the",
@@ -250,29 +281,32 @@ Item {
 
   function start() {
     if (!request) return
-    // Never stack a second bridge on a live one.
-    if (agent.running) stop()
+    if (agent.running) stop(false, true)
     messages.clear()
-    choices = []
+    messages.append({ role: "Claude", body: "", choices: [] })
+    briefTldr = ""
+    briefRecommendation = ""
+    headerSummary = ""
+    choiceEffects = []
     proposedRule = -1
     submittedPromptIndex = -1
     submittedPromptSpaceActive = false
     submittedPromptY = 0
+    originalExpanded = false
     bridgeReady = false
     steeringSupported = false
     steeringPending = false
     sessionLost = false
-    activeReply = -1
+    activeReply = 0
     activeReplyMessageId = ""
     statusText = "Reading the request…"
+    decisionStatus = ""
     waiting = true
-    messages.append({ role: "Claude", body: "" })
-    activeReply = 0
     queuedPrompt = briefing()
     agent.running = true
   }
 
-  function stop(restart) {
+  function stop(restart, clearContent) {
     restartPending = restart === true
     if (agent.running) agent.write(JSON.stringify({ type: "close" }) + "\n")
     agent.running = false
@@ -283,7 +317,6 @@ Item {
     queuedPrompt = ""
     statusText = ""
     decisionStatus = ""
-    choices = []
     proposedRule = -1
     submittedPromptIndex = -1
     submittedPromptSpaceActive = false
@@ -291,16 +324,19 @@ Item {
     keyboardVelocityY = 0
     keyboardCoast.stop()
     trackpadCoast.stop()
-    messages.clear()
+    if (clearContent !== false) {
+      choiceEffects = []
+      briefTldr = ""
+      briefRecommendation = ""
+      headerSummary = ""
+      messages.clear()
+    }
   }
 
   function resummarize() {
     if (restartPending) return
-    if (agent.running) {
-      stop(true)
-    } else {
-      start()
-    }
+    if (agent.running) stop(true, true)
+    else start()
   }
 
   function send(text) {
@@ -310,28 +346,25 @@ Item {
       if (!steeringSupported || steeringPending || !bridgeReady || !agent.running) return false
       steeringPending = true
       statusText = "Steering…"
-      choices = []
-      proposedRule = -1
-      messages.append({ role: "You", body: value })
+      messages.append({ role: "You", body: value, choices: [] })
       submittedPromptIndex = messages.count - 1
       submittedPromptSpaceActive = true
       submittedPromptY = 0
-      messages.append({ role: "Claude", body: "" })
+      messages.append({ role: "Claude", body: "", choices: [] })
       activeReply = messages.count - 1
       activeReplyMessageId = ""
       agent.write(JSON.stringify({ type: "steer", text: value }) + "\n")
       revealLatestTimer.restart()
       return true
     }
-    choices = []
     proposedRule = -1
     waiting = true
     statusText = "Thinking…"
-    messages.append({ role: "You", body: value })
+    messages.append({ role: "You", body: value, choices: [] })
     submittedPromptIndex = messages.count - 1
     submittedPromptSpaceActive = true
     submittedPromptY = 0
-    messages.append({ role: "Claude", body: "" })
+    messages.append({ role: "Claude", body: "", choices: [] })
     activeReply = messages.count - 1
     activeReplyMessageId = ""
     queuedPrompt = value
@@ -340,11 +373,12 @@ Item {
     return true
   }
 
-  function activateRule(choiceLabel) {
-    var choice = String(choiceLabel)
-    decisionStatus = "Submitting “" + displayLabelForOption(choice) + "”…"
-    if (typeof ruleAction === "function") ruleAction(choice)
-    else ruleRequested(choice)
+  function activateChoice(index) {
+    if (index < 0 || index >= rulingChoices.length || root.recording || root.handled) return
+    var choice = rulingChoices[index]
+    var raw = String(choice.rawOption || "")
+    if (typeof ruleAction === "function") ruleAction(raw)
+    else ruleRequested(raw)
   }
 
   function flush() {
@@ -357,112 +391,100 @@ Item {
     if (activeReply < 0 || activeReply >= messages.count || text === "") return
     var next = String(messageId || "")
     if (next !== "" && activeReplyMessageId !== "" && next !== activeReplyMessageId) {
-      messages.append({ role: "Claude", body: "" })
+      messages.append({ role: "Claude", body: "", choices: [] })
       activeReply = messages.count - 1
     }
     if (next !== "") activeReplyMessageId = next
     messages.setProperty(activeReply, "body", (messages.get(activeReply).body || "") + text)
   }
 
-  // Pull the fenced control blocks out of a finished reply and hide them from
-  // the rendered markdown — they are UI, not prose.
-  function harvestBlocks() {
+  function plainBrief(text) { return String(text || "").trim() }
+
+  function optionIndexFor(label) {
+    var options = request && request.options ? request.options : []
+    var wanted = String(label || "").trim().toLowerCase()
+    for (var i = 0; i < options.length; i++)
+      if (String(options[i]).trim().toLowerCase() === wanted) return i
+    return -1
+  }
+
+  function extractBriefSection(body, title) {
+    var expression = new RegExp("(?:^|\\n)##\\s*" + title + "\\s*\\n([\\s\\S]*?)(?=\\n##\\s|$)", "i")
+    var match = expression.exec(body)
+    return match ? plainBrief(match[1]) : ""
+  }
+
+  // Finished replies are the boundary at which fenced controls become UI.
+  // The initial TL;DR and recommendation move into the pinned reading brief;
+  // later answers remain in the conversation in their original order.
+  function harvestBlocks(initialReply) {
     if (activeReply < 0 || activeReply >= messages.count) return
     var body = String(messages.get(activeReply).body || "")
-    var withoutHeader = body.replace(/```header-summary[ \t]*\n[\s\S]*?```/gi, "").trim()
-    var removedHeader = withoutHeader !== body
-    body = withoutHeader
-    var pattern = /```(choices|rule)[ \t]*\n([\s\S]*?)```/g
-    var found = []
+    var changed = false
+    var headerPattern = /```header-summary[ \t]*\n[\s\S]*?```/gi
+    var headerMatch = headerPattern.exec(body)
+    if (headerMatch) {
+      var headerBody = /```header-summary[ \t]*\n([\s\S]*?)```/i.exec(headerMatch[0])
+      headerSummary = String(headerBody ? headerBody[1] : "").replace(/\s+/g, " ").trim()
+      headerSummaryReady(headerSummary)
+      changed = true
+      body = body.replace(headerPattern, "")
+    }
+
+    var effects = []
+    var effectsFound = false
+    var conversationChoices = []
     var rule = -1
+    var controls = /```(choices|choice-effects|rule)[ \t]*\n([\s\S]*?)```/gi
     var match
-    while ((match = pattern.exec(body)) !== null) {
-      if (match[1] === "choices") {
-        var lines = String(match[2]).split("\n")
+    while ((match = controls.exec(body)) !== null) {
+      changed = true
+      var tag = String(match[1]).toLowerCase()
+      var lines = String(match[2]).split("\n")
+      if (tag === "choices") {
         for (var i = 0; i < lines.length; i++) {
           var line = lines[i].trim()
-          if (line !== "") found.push(line)
+          if (line !== "" && optionIndexFor(line) < 0) conversationChoices.push(line)
+        }
+      } else if (tag === "choice-effects") {
+        effectsFound = true
+        for (var effectIndex = 0; effectIndex < lines.length; effectIndex++) {
+          var effectMatch = /^\s*(\d+)\.\s+(.+?)\s*$/.exec(lines[effectIndex])
+          if (!effectMatch) continue
+          var number = Number(effectMatch[1])
+          if (number > 0) effects[number - 1] = effectMatch[2].trim()
         }
       } else {
         var parsed = parseInt(String(match[2]).trim(), 10)
         if (!isNaN(parsed)) rule = parsed
       }
     }
-    if (found.length === 0 && rule < 0 && !removedHeader) return
-    messages.setProperty(activeReply, "body", body.replace(pattern, "").trim())
-    choices = found
+    if (changed) body = body.replace(controls, "").trim()
+
+    if (initialReply) {
+      briefTldr = extractBriefSection(body, "TL;DR")
+      briefRecommendation = extractBriefSection(body, "Recommendation")
+      var briefSections = /(?:^|\n)##\s*(?:TL;DR|Recommendation)\s*\n[\s\S]*?(?=\n##\s|$)/gi
+      var withoutBrief = body.replace(briefSections, "").trim()
+      if (withoutBrief !== body) changed = true
+      body = withoutBrief
+    }
+    if (effectsFound) choiceEffects = effects
+    if (activeReply >= 0 && activeReply < messages.count)
+      messages.setProperty(activeReply, "choices", conversationChoices)
     proposedRule = rule
+    if (changed || conversationChoices.length > 0 || effectsFound || rule >= 0)
+      messages.setProperty(activeReply, "body", body)
   }
 
-  function publishHeaderSummary() {
-    if (activeReply < 0 || activeReply >= messages.count) return
-    var body = String(messages.get(activeReply).body || "")
-    var match = /```header-summary[ \t]*\n([\s\S]*?)```/i.exec(body)
-    if (!match)
-      match = /(?:^|\n)##\s*TL;DR\s*\n([\s\S]*?)(?=\n##\s|\n```|$)/i.exec(body)
-    if (!match) return
-    var summary = String(match[1] || "")
-      .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
-      .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-      .replace(/[`*_~>#]/g, "")
-      .replace(/^\s*[-+]\s+/gm, "")
-      .replace(/\s+/g, " ")
-      .trim()
-    var words = summary.split(" ")
-    if (words.length > 10) summary = words.slice(0, 10).join(" ") + "…"
-    if (summary !== "") headerSummaryReady(summary)
+  function handleMotionTunerKey(event) {
+    if ((event.modifiers & Qt.ControlModifier) === 0 || event.key !== Qt.Key_Comma) return false
+    motionTunerRequested()
+    return true
   }
 
-  // A chip whose text IS one of the request's options rules directly — clicking
-  // "dismiss" should dismiss, not start another round of confirmation.
-  function optionIndexFor(label) {
-    var options = request && request.options ? request.options : []
-    var wanted = String(label || "").trim().toLowerCase()
-    for (var i = 0; i < options.length; i++)
-      if (String(options[i]).trim().toLowerCase() === wanted) return i + 1
-    return -1
-  }
-
-  function displayLabelForOption(option) {
-    var options = request && request.options ? request.options : []
-    for (var i = 0; i < options.length; i++) {
-      if (String(options[i]) === String(option)) {
-        var rewritten = i < rulingChoiceLabels.length
-          ? String(rulingChoiceLabels[i] || "").trim() : ""
-        return rewritten !== "" ? rewritten : String(option)
-      }
-    }
-    return String(option)
-  }
-
-  function rulingChoices() {
-    // The request already carries its authoritative ruling options. Render
-    // those immediately instead of waiting for the summarizer to echo them
-    // back in its optional `choices` block.
-    var result = []
-    var options = request && request.options ? request.options : []
-    for (var i = 0; i < options.length; i++) {
-      var label = String(options[i])
-      if (request && request.kind === "effort" && label !== "continue" && label !== "dismiss") continue
-      result.push(label)
-    }
-    return result
-  }
-
-  function conversationChoices() {
-    var result = []
-    for (var i = 0; i < choices.length; i++)
-      if (optionIndexFor(choices[i]) < 0) result.push(choices[i])
-    return result
-  }
-
-  // Keyboard scrolling for the transcript, same shape as Ask's conversation so
-  // the two panes answer to the same keys: arrows and Ctrl+hjkl by line,
-  // PageUp/PageDown and Ctrl+u/d by page.
-  //
-  // requireModifier is set by the composer: while typing, bare arrows have to
-  // keep moving the caret, so only the Ctrl and Page forms scroll there.
   function scrollBy(dx, dy) {
+    if (!log.visible || log.height <= 0) return
     keyboardVelocityY = 0
     keyboardCoast.stop()
     trackpadCoast.stop()
@@ -483,8 +505,6 @@ Item {
     trackpadCoast.stop()
     promptRevealAnimation.stop()
     log.cancelFlick()
-    // Keep two and a half lines of the preceding conversation peeking above the
-    // prompt so its position in the transcript remains visually obvious.
     submittedPromptY = Math.max(0, promptItem.y + promptItem.promptLeading
       - root.humanMessageSize * 2.5)
     Qt.callLater(function() {
@@ -494,9 +514,7 @@ Item {
     })
   }
 
-  function scrollLine(dx, dy) {
-    scrollBy(dx * Style.space(44), dy * Style.space(44))
-  }
+  function scrollLine(dx, dy) { scrollBy(dx * 44 * fontScale, dy * 44 * fontScale) }
 
   function coastVertically(velocity) {
     promptRevealAnimation.stop()
@@ -516,22 +534,16 @@ Item {
   }
 
   function scrollKeyImpulse(dx, dy, page) {
-    if (dx !== 0) scrollBy(dx * Style.space(44), 0)
+    if (dx !== 0) scrollBy(dx * 44 * fontScale, 0)
     if (dy === 0) return
     log.cancelFlick()
     trackpadCoast.stop()
     promptRevealAnimation.stop()
-    var impulse = page ? keyboardPageImpulse : keyboardLineImpulse
+    var impulse = page ? 689 : 335
     keyboardVelocityY = Math.max(-log.maximumFlickVelocity,
       Math.min(log.maximumFlickVelocity, keyboardVelocityY + dy * impulse))
     keyboardSampleTime = Date.now()
     keyboardCoast.start()
-  }
-
-  function handleMotionTunerKey(event) {
-    if ((event.modifiers & Qt.ControlModifier) === 0 || event.key !== Qt.Key_Comma) return false
-    motionTunerRequested()
-    return true
   }
 
   function handleScrollKey(event, requireModifier) {
@@ -549,6 +561,7 @@ Item {
     if (event.key === Qt.Key_Right) { scrollKeyImpulse(1, 0, false); return true }
     return false
   }
+
   function answerPermission(allow) {
     if (pendingPermissionId === "") return
     agent.write(JSON.stringify({ type: "permission", id: pendingPermissionId, allow: allow }) + "\n")
@@ -570,11 +583,11 @@ Item {
         appendReply(String(event.text || ""), String(event.messageId || ""))
         statusText = "Replying…"
       } else if (event.type === "done") {
+        var initialReply = submittedPromptIndex < 0
         waiting = false
         steeringPending = false
         statusText = ""
-        if (submittedPromptIndex < 0) publishHeaderSummary()
-        harvestBlocks()
+        harvestBlocks(initialReply)
         activeReplyMessageId = ""
         assistantMessageFinished()
       } else if (event.type === "steered") {
@@ -589,8 +602,7 @@ Item {
         statusText = String(event.text || "Working…")
       } else if (event.type === "tool") {
         statusText = String(event.status || "") === "completed"
-          ? "Thinking…"
-          : String(event.title || "Using a tool")
+          ? "Thinking…" : String(event.title || "Using a tool")
       } else if (event.type === "permission") {
         pendingPermissionId = String(event.id || "")
         pendingPermissionTitle = String(event.title || "Use a tool")
@@ -606,6 +618,37 @@ Item {
         statusText = String(event.message || "Session lost") + " · reopen to retry"
       }
     } catch (error) {}
+  }
+
+  function updateDockedChoices() {
+    if (!root.narrowLayout || !root.showInlineChoices || !root.bodyVisible || !choiceBlock.visible) {
+      dockedChoicesVisible = false
+      return
+    }
+    var top = choiceBlock.y
+    var bottom = top + choiceBlock.height
+    var viewTop = log.contentY
+    var viewBottom = viewTop + Math.max(0, log.height)
+    var fullyVisible = top >= viewTop - 1 && bottom <= viewBottom + 1
+    if (fullyVisible) dockedChoicesVisible = false
+    else dockedChoicesVisible = true
+  }
+
+  function revealChoices() {
+    if (!choiceBlock.visible) return
+    var maxY = Math.max(0, log.contentHeight - log.height)
+    log.contentY = Math.max(0, Math.min(maxY, choiceBlock.y))
+    Qt.callLater(updateDockedChoices)
+  }
+
+  function focusBody() {
+    if (root.bodyVisible) log.forceActiveFocus()
+  }
+
+  function focusAsk() {
+    if (!root.askVisible) return
+    input.forceActiveFocus()
+    input.cursorPosition = input.length
   }
 
   ListModel { id: messages }
@@ -634,462 +677,640 @@ Item {
     }
   }
 
-  Column {
-    anchors.fill: parent
-    spacing: Style.space(10)
+  Flickable {
+    id: log
+    visible: root.bodyVisible
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: parent.top
+    anchors.leftMargin: root.bodyHorizontalPadding
+    anchors.rightMargin: root.bodyHorizontalPadding
+    anchors.topMargin: root.bodyTopPadding
+    height: root.bodyVisible ? Math.max(0, parent.height - root.bodyTopPadding
+      - (root.dockedChoicesVisible ? dock.height : composer.height)) : 0
+    contentWidth: width
+    contentHeight: Math.max(0, transcript.implicitHeight)
+    clip: true
+    focus: true
+    interactive: contentHeight > height
+    flickableDirection: Flickable.VerticalFlick
+    maximumFlickVelocity: 6000
+    flickDeceleration: 650
+    boundsBehavior: Flickable.StopAtBounds
+    Keys.onPressed: function(event) {
+      if (root.handleGlobalKey(event)) event.accepted = true
+    }
+    onContentYChanged: root.updateDockedChoices()
+    onHeightChanged: Qt.callLater(root.updateDockedChoices)
+    onDraggingChanged: {
+      if (!dragging) return
+      root.keyboardVelocityY = 0
+      keyboardCoast.stop()
+      trackpadCoast.stop()
+      promptRevealAnimation.stop()
+    }
 
-    Item {
-      id: contentToolbar
-      width: parent.width
-      height: Style.space(30)
-
-      Rectangle {
-        id: resummarizeButton
-        anchors.top: parent.top
-        anchors.right: parent.right
-        width: resummarizeLabel.implicitWidth + Style.space(20)
-        height: parent.height
-        radius: height / 2
-        color: resummarizeHover.hovered
-          ? Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.14)
-          : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.07)
-        border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.22)
-        opacity: root.restartPending ? 0.55 : 1
-
-        Text {
-          id: resummarizeLabel
-          anchors.centerIn: parent
-          text: root.restartPending ? "Restarting…" : "󰑓  Re-summarize"
-          color: root.foreground
-          font.family: Style.font.family
-          font.pixelSize: root.captionSize
-        }
-
-        HoverHandler {
-          id: resummarizeHover
-          cursorShape: Qt.PointingHandCursor
-        }
-
-        TapHandler {
-          enabled: !root.restartPending
-          acceptedButtons: Qt.LeftButton
-          gesturePolicy: TapHandler.ReleaseWithinBounds
-          onTapped: root.resummarize()
-        }
+    Timer {
+      id: revealLatestTimer
+      interval: 1
+      repeat: false
+      onTriggered: {
+        root.keyboardVelocityY = 0
+        keyboardCoast.stop()
+        trackpadCoast.stop()
+        log.cancelFlick()
+        root.positionSubmittedPromptAtTop()
       }
     }
 
-    Flickable {
-      id: log
-      width: parent.width
-      height: parent.height - contentToolbar.height - composer.height
-        - choiceFlow.height - Style.space(30)
-      contentHeight: transcript.height
-      clip: true
-      interactive: contentHeight > height
-      flickableDirection: Flickable.VerticalFlick
-      maximumFlickVelocity: 6000
-      flickDeceleration: 650
-      boundsBehavior: Flickable.StopAtBounds
-      onDraggingChanged: {
-        if (!dragging) return
+    Timer {
+      id: keyboardCoast
+      interval: 16
+      repeat: true
+      onTriggered: {
+        var now = Date.now()
+        var elapsed = Math.max(1, Math.min(40, now - root.keyboardSampleTime)) / 1000
+        root.keyboardSampleTime = now
+        var velocity = root.keyboardVelocityY
+        var maxY = Math.max(0, log.contentHeight - log.height)
+        var nextY = Math.max(0, Math.min(maxY, log.contentY + velocity * elapsed))
+        log.contentY = nextY
+        if ((nextY <= 0 && velocity < 0) || (nextY >= maxY && velocity > 0)) {
+          root.keyboardVelocityY = 0
+          stop()
+          return
+        }
+        var loss = 608 * elapsed
+        if (Math.abs(velocity) <= loss) {
+          root.keyboardVelocityY = 0
+          stop()
+        } else root.keyboardVelocityY = velocity > 0 ? velocity - loss : velocity + loss
+      }
+    }
+
+    NumberAnimation {
+      id: promptRevealAnimation
+      target: log
+      property: "contentY"
+      duration: 420
+      easing.type: Easing.OutCubic
+    }
+
+    NumberAnimation {
+      id: trackpadCoast
+      target: log
+      property: "contentY"
+      easing.type: Easing.OutQuint
+    }
+
+    WheelHandler {
+      id: trackpadWheel
+      target: null
+      blocking: true
+      acceptedButtons: Qt.NoButton
+      acceptedDevices: PointerDevice.TouchPad | PointerDevice.Mouse
+      property double lastSampleTime: 0
+      property real releaseVelocityY: 0
+
+      function coast() {
+        coastTimer.stop()
+        root.coastVertically(-releaseVelocityY)
+        lastSampleTime = 0
+        releaseVelocityY = 0
+      }
+
+      onWheel: function(wheel) {
+        if (wheel.pixelDelta.x === 0 && wheel.pixelDelta.y === 0) {
+          var steps = wheel.angleDelta.y / 120
+          var sideways = wheel.angleDelta.x / 120
+          if (steps !== 0 || sideways !== 0) root.scrollLine(-sideways * 3, -steps * 3)
+          wheel.accepted = true
+          return
+        }
         root.keyboardVelocityY = 0
         keyboardCoast.stop()
         trackpadCoast.stop()
         promptRevealAnimation.stop()
-      }
-
-      // Submission creates a viewport of space below the new prompt, then
-      // places that prompt at the top. Assistant output fills that space;
-      // streaming itself never changes contentY.
-      Timer {
-        id: revealLatestTimer
-        interval: 1
-        repeat: false
-        onTriggered: {
-          root.keyboardVelocityY = 0
-          keyboardCoast.stop()
-          trackpadCoast.stop()
-          log.cancelFlick()
-          root.positionSubmittedPromptAtTop()
-        }
-      }
-
-      Timer {
-        id: keyboardCoast
-        interval: 16
-        repeat: true
-        onTriggered: {
-          var now = Date.now()
-          var elapsed = Math.max(1, Math.min(40, now - root.keyboardSampleTime)) / 1000
-          root.keyboardSampleTime = now
-          var velocity = root.keyboardVelocityY
-          var maxY = Math.max(0, log.contentHeight - log.height)
-          var nextY = Math.max(0, Math.min(maxY, log.contentY + velocity * elapsed))
-          log.contentY = nextY
-          if ((nextY <= 0 && velocity < 0) || (nextY >= maxY && velocity > 0)) {
-            root.keyboardVelocityY = 0
-            stop()
-            return
-          }
-          var loss = root.keyboardDeceleration * elapsed
-          if (Math.abs(velocity) <= loss) {
-            root.keyboardVelocityY = 0
-            stop()
-          } else {
-            root.keyboardVelocityY = velocity > 0 ? velocity - loss : velocity + loss
-          }
-        }
-      }
-
-      NumberAnimation {
-        id: promptRevealAnimation
-        target: log
-        property: "contentY"
-        duration: 420
-        easing.type: Easing.OutCubic
-      }
-
-      NumberAnimation {
-        id: trackpadCoast
-        target: log
-        property: "contentY"
-        easing.type: Easing.OutQuint
-      }
-
-      WheelHandler {
-        id: trackpadWheel
-        target: null
-        blocking: true
-        acceptedButtons: Qt.NoButton
-        acceptedDevices: PointerDevice.TouchPad | PointerDevice.Mouse
-        property double lastSampleTime: 0
-        property real releaseVelocityY: 0
-
-        function coast() {
-          coastTimer.stop()
-          root.coastVertically(-releaseVelocityY)
-          lastSampleTime = 0
+        log.cancelFlick()
+        var now = Date.now()
+        var firstSample = wheel.phase === Qt.ScrollBegin || lastSampleTime === 0
+        if (firstSample) {
+          lastSampleTime = now
           releaseVelocityY = 0
         }
-
-        onWheel: function(wheel) {
-          if (wheel.pixelDelta.x === 0 && wheel.pixelDelta.y === 0) {
-            var steps = wheel.angleDelta.y / 120
-            var sideways = wheel.angleDelta.x / 120
-            if (steps !== 0 || sideways !== 0)
-              root.scrollLine(-sideways * 3, -steps * 3)
-            wheel.accepted = true
-            return
-          }
-
-          root.keyboardVelocityY = 0
-          keyboardCoast.stop()
-          trackpadCoast.stop()
-          promptRevealAnimation.stop()
-          log.cancelFlick()
-          var now = Date.now()
-          var firstSample = wheel.phase === Qt.ScrollBegin || lastSampleTime === 0
-          if (firstSample) {
-            lastSampleTime = now
-            releaseVelocityY = 0
-          }
-          if (wheel.phase === Qt.ScrollEnd) {
-            coast()
-            wheel.accepted = true
-            return
-          }
-          var elapsed = firstSample ? 16 : Math.max(1, Math.min(80, now - lastSampleTime))
-          var dy = wheel.pixelDelta.y
-          releaseVelocityY = releaseVelocityY * 0.55 + dy * 1000 / elapsed * 0.45
-          lastSampleTime = now
-
-          var maxY = Math.max(0, log.contentHeight - log.height)
-          log.contentY = Math.max(0, Math.min(maxY, log.contentY - dy))
-          coastTimer.restart()
+        if (wheel.phase === Qt.ScrollEnd) {
+          coast()
           wheel.accepted = true
+          return
         }
+        var elapsed = firstSample ? 16 : Math.max(1, Math.min(80, now - lastSampleTime))
+        var dy = wheel.pixelDelta.y
+        releaseVelocityY = releaseVelocityY * 0.55 + dy * 1000 / elapsed * 0.45
+        lastSampleTime = now
+        var maxY = Math.max(0, log.contentHeight - log.height)
+        log.contentY = Math.max(0, Math.min(maxY, log.contentY - dy))
+        coastTimer.restart()
+        wheel.accepted = true
       }
+    }
 
-      Timer { id: coastTimer; interval: 55; onTriggered: trackpadWheel.coast() }
+    Timer { id: coastTimer; interval: 55; onTriggered: trackpadWheel.coast() }
+
+    Column {
+      id: transcript
+      width: Math.max(0, log.width)
+      spacing: Math.round(18 * root.fontScale)
 
       Column {
-        id: transcript
-        width: log.width
-        spacing: Style.space(10)
+        id: briefSection
+        width: parent.width
+        spacing: Math.round(8 * root.fontScale)
+        visible: root.bodyVisible
 
-        Repeater {
-          id: messageRepeater
-          model: messages
-          Item {
-            required property int index
-            required property string role
-            required property string body
-            readonly property bool human: role === "You"
-            readonly property real promptLeading: human
-              ? Math.round(root.humanMessageSize * 1.25) : 0
-            width: transcript.width
-            height: body === "" ? 0 : promptLeading + entry.contentHeight
-
-            TextEdit {
-              id: entry
-              y: parent.promptLeading
-              width: parent.width
-              height: contentHeight
-              text: human ? body : root.spacedMarkdown(body)
-              color: human ? root.accent : root.foreground
-              font.family: human ? "serif" : Style.font.family
-              font.pixelSize: human ? root.humanMessageSize : root.bodySize
-              font.italic: human
-              wrapMode: TextEdit.Wrap
-              textFormat: human ? TextEdit.PlainText : TextEdit.MarkdownText
-              readOnly: true
-              selectByMouse: true
-              Keys.onPressed: function(event) { if (root.handleFontKey(event) || root.handleMotionTunerKey(event) || root.handleScrollKey(event, false)) event.accepted = true }
-              onLinkActivated: function(link) { Qt.openUrlExternally(link) }
-            }
-          }
+        Text {
+          width: parent.width
+          text: "BRIEF"
+          color: root.foreground
+          font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
+          font.pixelSize: root.captionSize
+          font.weight: Font.Medium
+          font.letterSpacing: Math.round(1.3 * root.fontScale)
         }
 
         Text {
-          width: transcript.width
-          visible: root.decisionStatus !== "" || root.statusText !== ""
-          text: root.decisionStatus !== "" ? root.decisionStatus : root.statusText
-          color: root.muted
-          font.family: Style.font.family
-          font.pixelSize: root.captionSize
-          wrapMode: Text.WordWrap
+          width: parent.width
+          visible: root.briefTldr !== ""
+          height: visible ? implicitHeight : 0
+          text: root.spacedMarkdown(root.briefTldr)
+          color: root.foreground
+          font.family: root.sansFamily
+          font.pixelSize: root.bodySize
+          wrapMode: Text.Wrap
+          textFormat: Text.MarkdownText
+          lineHeight: font.pixelSize * 1.6
+          lineHeightMode: Text.FixedHeight
+          Keys.onPressed: function(event) {
+            if (root.handleFontKey(event) || root.handleMotionTunerKey(event)
+                || root.handleScrollKey(event, false) || root.handleGlobalKey(event)) event.accepted = true
+          }
+          onLinkActivated: function(link) { Qt.openUrlExternally(link) }
         }
 
-        Item {
-          id: submittedPromptSpace
-          width: transcript.width
-          height: root.submittedPromptSpaceActive
-            ? Math.max(0, root.submittedPromptY + log.height - y)
-            : 0
+        Text {
+          width: parent.width
+          visible: root.briefRecommendation !== ""
+          height: visible ? implicitHeight : 0
+          text: root.spacedMarkdown(root.briefRecommendation)
+          color: root.foreground
+          font.family: root.sansFamily
+          font.pixelSize: root.bodySize
+          wrapMode: Text.Wrap
+          textFormat: Text.MarkdownText
+          lineHeight: font.pixelSize * 1.6
+          lineHeightMode: Text.FixedHeight
+          Keys.onPressed: function(event) {
+            if (root.handleFontKey(event) || root.handleMotionTunerKey(event)
+                || root.handleScrollKey(event, false) || root.handleGlobalKey(event)) event.accepted = true
+          }
+          onLinkActivated: function(link) { Qt.openUrlExternally(link) }
+        }
+
+        Text {
+          width: parent.width
+          visible: root.briefTldr === "" && root.briefRecommendation === ""
+          height: visible ? implicitHeight : 0
+          text: root.summaryNotes !== "" ? root.summaryNotes
+            : (root.summaryParent !== "" ? root.summaryParent : "Reading the request…")
+          color: root.secondary
+          font.family: root.sansFamily
+          font.pixelSize: root.bodySize
+          wrapMode: Text.Wrap
+          lineHeight: font.pixelSize * 1.6
+          lineHeightMode: Text.FixedHeight
+          Keys.onPressed: function(event) {
+            if (root.handleFontKey(event) || root.handleMotionTunerKey(event)
+                || root.handleScrollKey(event, false) || root.handleGlobalKey(event)) event.accepted = true
+          }
         }
       }
-    }
 
-    Column {
-      id: choiceFlow
-      width: parent.width
-      spacing: Style.space(8)
-      height: visible ? implicitHeight : 0
-      visible: !root.decisionBusy && (root.pendingPermissionId !== "" || root.proposedRule > 0
-        || root.choices.length > 0 || root.rulingChoices().length > 0
-      )
+      Item {
+        id: choiceBlock
+        width: parent.width
+        property real choiceGap: Math.round(2 * root.fontScale)
+        visible: root.narrowLayout && !root.minimumMode && root.rulingChoices.length > 0
+        height: root.showInlineChoices
+          ? root.choiceStackHeight(choiceRepeater, choiceGap) : 0
+        onHeightChanged: Qt.callLater(root.updateDockedChoices)
 
-      // A tool wants to run. Reads are the common case; the ruling never
-      // arrives through here, so allowing is low-stakes.
-      Flow {
+        Repeater {
+          id: choiceRepeater
+          model: root.rulingChoices
+          delegate: DecisionChoice {
+            required property var modelData
+            required property int index
+            width: choiceBlock.width
+            y: root.choiceStackOffset(choiceRepeater, index, choiceBlock.choiceGap)
+            density: "full"
+            label: String(modelData.label || "")
+            effect: String(modelData.effect || "")
+            rawOption: String(modelData.rawOption || "")
+            number: Number(modelData.number || index + 1)
+            armed: root.armedChoice === index
+            focused: root.focusedChoice === index
+            focusActive: root.focusedChoice >= 0
+            proposed: root.proposedChoice === index
+            recording: root.recording && String(modelData.rawOption || "") === root.recordingChoice
+            interactive: !root.recording && !root.handled
+            fontScale: root.fontScale
+            sansFamily: root.sansFamily
+            sansMediumFamily: root.sansFamily
+            monoFamily: root.monoFamily
+            ground: root.ground
+            ink: root.foreground
+            secondary: root.secondary
+            faint: root.faint
+            hairline: root.hairline
+            keyBorder: root.keyBorder
+            onFocusedByUser: root.choiceFocused(index)
+            onActivated: root.activateChoice(index)
+          }
+        }
+      }
+
+      Text {
+        width: parent.width
+        visible: root.narrowLayout && root.decisionStatus !== ""
+          && root.decisionStatus.indexOf("Recording “") !== 0
+        height: visible ? implicitHeight : 0
+        text: root.decisionStatus
+        color: root.secondary
+        font.family: root.monoFamily
+        font.pixelSize: root.captionSize
+        elide: Text.ElideRight
+      }
+
+      Repeater {
+        id: messageRepeater
+        model: messages
+        delegate: Item {
+          required property int index
+          required property string role
+          required property string body
+          required property var choices
+          readonly property bool human: role === "You"
+          readonly property real promptLeading: human
+            ? Math.round(root.humanMessageSize * 1.25) : 0
+          width: transcript.width
+          height: messageContents.implicitHeight
+
+          Column {
+            id: messageContents
+            width: parent.width
+            spacing: Math.round(8 * root.fontScale)
+
+            Text {
+              width: parent.width
+              visible: body !== ""
+              height: visible ? implicitHeight : 0
+              text: human ? body : root.spacedMarkdown(body)
+              color: human ? root.accent : root.foreground
+              font.family: human
+                ? (root.newsreaderItalicFamily !== "" ? root.newsreaderItalicFamily : root.newsreaderFamily)
+                : root.sansFamily
+              font.pixelSize: human ? root.humanMessageSize : root.bodySize
+              font.italic: human
+              wrapMode: Text.Wrap
+              textFormat: human ? Text.PlainText : Text.MarkdownText
+              lineHeight: font.pixelSize * (human ? 1.25 : 1.6)
+              lineHeightMode: Text.FixedHeight
+              Keys.onPressed: function(event) {
+                if (root.handleFontKey(event) || root.handleMotionTunerKey(event)
+                    || root.handleScrollKey(event, false) || root.handleGlobalKey(event)) event.accepted = true
+              }
+              onLinkActivated: function(link) { Qt.openUrlExternally(link) }
+            }
+
+            Item {
+              id: conversationChoices
+              width: parent.width
+              property var messageChoices: choices || []
+              property real choiceGap: Math.round(6 * root.fontScale)
+              visible: messageChoices.length > 0
+              height: visible ? messageChoices.length * Math.round(32 * root.fontScale)
+                + Math.max(0, messageChoices.length - 1) * choiceGap : 0
+
+              Repeater {
+                model: conversationChoices.messageChoices
+                delegate: Rectangle {
+                  required property var modelData
+                  required property int index
+                  x: 0
+                  y: index * (height + conversationChoices.choiceGap)
+                  width: Math.min(conversationChoices.width,
+                    choiceLabel.implicitWidth + Math.round(24 * root.fontScale))
+                  height: Math.round(32 * root.fontScale)
+                  color: "transparent"
+                  border.color: root.hairline
+                  border.width: 1
+                  radius: Math.round(4 * root.fontScale)
+
+                  Text {
+                    id: choiceLabel
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.leftMargin: Math.round(10 * root.fontScale)
+                    anchors.rightMargin: Math.round(10 * root.fontScale)
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: String(modelData)
+                    color: root.foreground
+                    font.family: root.sansFamily
+                    font.pixelSize: Math.round(13 * root.fontScale)
+                    font.weight: Font.Medium
+                    elide: Text.ElideRight
+                  }
+
+                  MouseArea {
+                    anchors.fill: parent
+                    enabled: !root.waiting && !root.recording && !root.handled
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: root.send(modelData)
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      Item {
         width: parent.width
         visible: root.pendingPermissionId !== ""
-        height: visible ? implicitHeight : 0
-        spacing: Style.space(8)
-        Rectangle {
-          width: permissionLabel.implicitWidth + Style.space(24)
-          height: Style.space(42)
-          radius: Style.cornerRadius
-          color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.10)
-          border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.24)
+        height: visible ? permissionContents.implicitHeight : 0
+
+        Column {
+          id: permissionContents
+          width: parent.width
+          spacing: Math.round(6 * root.fontScale)
+
           Text {
-            id: permissionLabel
-            anchors.centerIn: parent
+            width: parent.width
             text: "Allow: " + root.pendingPermissionTitle
-            color: root.foreground
-            font.family: Style.font.family
+            color: root.secondary
+            font.family: root.sansFamily
             font.pixelSize: root.captionSize
+            elide: Text.ElideRight
           }
-          MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.answerPermission(true)
-          }
-        }
-        Rectangle {
-          width: denyLabel.implicitWidth + Style.space(24)
-          height: Style.space(42)
-          radius: Style.cornerRadius
-          color: "transparent"
-          border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.24)
-          Text {
-            id: denyLabel
-            anchors.centerIn: parent
-            text: "Deny"
-            color: root.muted
-            font.family: Style.font.family
-            font.pixelSize: root.captionSize
-          }
-          MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.answerPermission(false)
+
+          Row {
+            spacing: Math.round(8 * root.fontScale)
+
+            Rectangle {
+              width: allowLabel.implicitWidth + Math.round(20 * root.fontScale)
+              height: Math.round(32 * root.fontScale)
+              color: "transparent"
+              border.color: root.hairline
+              border.width: 1
+              radius: Math.round(4 * root.fontScale)
+              Text { id: allowLabel; anchors.centerIn: parent; text: "Allow"; color: root.foreground; font.family: root.sansFamily; font.pixelSize: root.captionSize }
+              MouseArea { anchors.fill: parent; onClicked: root.answerPermission(true) }
+            }
+
+            Rectangle {
+              width: denyLabel.implicitWidth + Math.round(20 * root.fontScale)
+              height: Math.round(32 * root.fontScale)
+              color: "transparent"
+              border.color: root.hairline
+              border.width: 1
+              radius: Math.round(4 * root.fontScale)
+              Text { id: denyLabel; anchors.centerIn: parent; text: "Deny"; color: root.secondary; font.family: root.sansFamily; font.pixelSize: root.captionSize }
+              MouseArea { anchors.fill: parent; onClicked: root.answerPermission(false) }
+            }
           }
         }
       }
 
-      // Rulings always occupy the first row. They change Tightbeam state and
-      // remain visually distinct from the conversation starters below.
-      Flow {
+      Text {
         width: parent.width
-        visible: root.pendingPermissionId === ""
-          && (root.proposedRule > 0 || root.rulingChoices().length > 0)
+        visible: root.statusText !== ""
         height: visible ? implicitHeight : 0
-        spacing: Style.space(8)
+        text: root.statusText
+        color: root.secondary
+        font.family: root.monoFamily
+        font.pixelSize: root.captionSize
+        elide: Text.ElideRight
+      }
+
+      Item {
+        id: submittedPromptSpace
+        width: transcript.width
+        height: root.submittedPromptSpaceActive
+          ? Math.max(0, root.submittedPromptY + log.height - y) : 0
+      }
+
+      Column {
+        id: originalRequest
+        width: parent.width
+        spacing: Math.round(8 * root.fontScale)
 
         Rectangle {
-          visible: root.proposedRule > 0 && root.rulingChoices().length === 0
-          width: ruleLabel.implicitWidth + Style.space(30)
-          height: Style.space(42)
-          radius: Style.cornerRadius
-          color: ruleHover.hovered ? root.accent : Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.20)
-          border.color: root.accent
+          width: parent.width
+          height: Math.round(26 * root.fontScale)
+          color: "transparent"
+
           Text {
-            id: ruleLabel
-            anchors.centerIn: parent
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            text: "ORIGINAL REQUEST"
+            color: root.secondary
+            font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
+            font.pixelSize: root.captionSize
+            font.weight: Font.Medium
+            font.letterSpacing: Math.round(1.3 * root.fontScale)
+          }
+
+          Text {
+            anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.originalExpanded ? "▾" : "▸"
+            color: root.secondary
+            font.family: root.monoFamily
+            font.pixelSize: root.captionSize
+          }
+
+          MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.originalExpanded = !root.originalExpanded
+          }
+        }
+
+        Column {
+          width: parent.width
+          visible: root.originalExpanded
+          spacing: Math.round(6 * root.fontScale)
+
+          TextEdit {
+            width: parent.width
+            height: visible ? contentHeight : 0
+            text: "question\n" + String(root.request && root.request.question || "")
+              + "\n\nsubject\n" + String(root.request && root.request.subject || "")
+              + "\n\nnote\n" + String(root.request && root.request.note || "")
+            color: root.secondary
+            font.family: root.monoFamily
+            font.pixelSize: root.captionSize
+            wrapMode: TextEdit.Wrap
+            readOnly: true
+            selectByMouse: true
+            Keys.onPressed: function(event) {
+              if (root.handleFontKey(event) || root.handleMotionTunerKey(event)
+                  || root.handleScrollKey(event, false) || root.handleGlobalKey(event)) event.accepted = true
+            }
+          }
+
+          TextEdit {
+            width: parent.width
+            height: visible ? contentHeight : 0
             text: {
               var options = root.request && root.request.options ? root.request.options : []
-              var index = root.proposedRule - 1
-              return "Record: " + (index >= 0 && index < options.length
-                ? root.displayLabelForOption(options[index]) : "option " + root.proposedRule)
+              var lines = ["options"]
+              for (var optionIndex = 0; optionIndex < options.length; optionIndex++)
+                lines.push((optionIndex + 1) + ". " + options[optionIndex])
+              return lines.join("\n")
             }
-            color: ruleHover.hovered ? Color.background : root.foreground
-            font.family: Style.font.family
-            font.pixelSize: root.bodySize
-            font.bold: true
-          }
-          HoverHandler {
-            id: ruleHover
-            cursorShape: Qt.PointingHandCursor
-          }
-          TapHandler {
-            acceptedButtons: Qt.LeftButton
-            gesturePolicy: TapHandler.ReleaseWithinBounds
-            onTapped: {
-              var options = root.request && root.request.options ? root.request.options : []
-              var index = root.proposedRule - 1
-              if (index >= 0 && index < options.length) root.activateRule(options[index])
+            color: root.secondary
+            font.family: root.monoFamily
+            font.pixelSize: root.captionSize
+            wrapMode: TextEdit.Wrap
+            readOnly: true
+            selectByMouse: true
+            Keys.onPressed: function(event) {
+              if (root.handleFontKey(event) || root.handleMotionTunerKey(event)
+                  || root.handleScrollKey(event, false) || root.handleGlobalKey(event)) event.accepted = true
             }
-          }
-        }
-
-        Repeater {
-          model: root.rulingChoices()
-          Rectangle {
-            id: rulingButton
-            required property var modelData
-            width: rulingLabel.implicitWidth + Style.space(30)
-            height: Style.space(42)
-            radius: Style.cornerRadius
-            color: rulingHover.hovered ? root.accent : Qt.rgba(root.accent.r, root.accent.g, root.accent.b, 0.20)
-            border.color: root.accent
-            Text {
-              id: rulingLabel
-              anchors.centerIn: parent
-              text: root.displayLabelForOption(modelData)
-              color: rulingHover.hovered ? Color.background : root.foreground
-              font.family: Style.font.family
-              font.pixelSize: root.bodySize
-              font.bold: true
-            }
-            HoverHandler {
-              id: rulingHover
-              cursorShape: Qt.PointingHandCursor
-            }
-            TapHandler {
-              acceptedButtons: Qt.LeftButton
-              gesturePolicy: TapHandler.ReleaseWithinBounds
-              onTapped: root.activateRule(rulingButton.modelData)
-            }
-          }
-        }
-      }
-
-      // Conversation starters always begin on a fresh row and use a message
-      // glyph to make it clear that they send text rather than record a rule.
-      Flow {
-        width: parent.width
-        visible: root.pendingPermissionId === "" && root.conversationChoices().length > 0
-        height: visible ? implicitHeight : 0
-        spacing: Style.space(8)
-        Repeater {
-          model: root.conversationChoices()
-          Rectangle {
-            required property var modelData
-            width: conversationLabel.implicitWidth + Style.space(24)
-            height: Style.space(42)
-            radius: Style.cornerRadius
-            color: conversationMouse.containsMouse
-              ? Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.18)
-              : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.08)
-            border.color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.22)
-            Text {
-              id: conversationLabel
-              anchors.centerIn: parent
-              text: "󰍡  " + modelData
-              color: root.foreground
-              font.family: Style.font.family
-              font.pixelSize: root.captionSize
-            }
-            MouseArea {
-              id: conversationMouse
-              anchors.fill: parent
-              hoverEnabled: true
-              cursorShape: Qt.PointingHandCursor
-              enabled: !root.waiting
-              onClicked: root.send(modelData)
-            }
-          }
-        }
-      }
-    }
-
-    Rectangle {
-      id: composer
-      width: parent.width
-      // Follows both the text scale and the wrapped content. A fixed box
-      // clipped its own text as soon as the font grew, and clipped multi-line
-      // input at any size. input.implicitHeight is content-derived, so it does
-      // not depend on this height and cannot form a loop.
-      height: Math.max(Math.round(Style.space(46) * root.fontScale),
-                       input.implicitHeight + Style.space(20))
-      radius: Style.cornerRadius
-      color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.08)
-      border.color: input.activeFocus ? root.accent : Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.22)
-
-      TextArea {
-        id: input
-        // Width-anchored rather than filled, so the height stays implicit and
-        // the box above can size itself from it.
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.leftMargin: Style.space(10)
-        anchors.rightMargin: Style.space(10)
-        anchors.verticalCenter: parent.verticalCenter
-        color: root.foreground
-        font.family: Style.font.family
-        font.pixelSize: root.bodySize
-        placeholderText: root.waiting && root.steeringSupported ? "Steer this turn…" : "Ask about this decision…"
-        placeholderTextColor: root.muted
-        wrapMode: TextEdit.Wrap
-        enabled: !root.sessionLost && (!root.waiting
-          || (root.steeringSupported && !root.steeringPending))
-        opacity: root.steeringPending ? 0.45 : 1
-        background: null
-        Keys.onPressed: function(event) {
-          if (root.handleFontKey(event) || root.handleMotionTunerKey(event) || root.handleScrollKey(event, true)) { event.accepted = true; return }
-          if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
-              && !(event.modifiers & Qt.ShiftModifier)) {
-            if (root.send(input.text)) input.text = ""
-            event.accepted = true
-          } else if (event.key === Qt.Key_Y && root.pendingPermissionId !== "" && input.text === "") {
-            root.answerPermission(true); event.accepted = true
-          } else if (event.key === Qt.Key_N && root.pendingPermissionId !== "" && input.text === "") {
-            root.answerPermission(false); event.accepted = true
           }
         }
       }
     }
   }
+
+  DecisionCompactStrip {
+    id: dock
+    visible: root.narrowLayout && !root.minimumMode && root.dockedChoicesVisible
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: composer.top
+    width: parent.width
+    choices: root.rulingChoices
+    columns: 2
+    showLabel: true
+    showExplain: true
+    hint: root.decisionStatus !== ""
+      && root.decisionStatus.indexOf("Recording “") !== 0 ? root.decisionStatus : ""
+    fontScale: root.fontScale
+    armedIndex: root.armedChoice
+    focusedIndex: root.focusedChoice
+    proposedIndex: root.proposedChoice
+    focusActive: root.focusedChoice >= 0
+    interactive: !root.recording && !root.handled
+    sansFamily: root.sansFamily
+    sansMediumFamily: root.sansFamily
+    monoFamily: root.monoFamily
+    ground: root.ground
+    panel: root.mixColor(root.ground, root.foreground, 0.05)
+    ink: root.foreground
+    secondary: root.secondary
+    faint: root.faint
+    hairline: root.hairline
+    keyBorder: root.keyBorder
+    onChoiceActivated: root.activateChoice(index)
+    onChoiceFocused: root.choiceFocused(index)
+    onExplainRequested: root.revealChoices()
+  }
+
+  Rectangle {
+    id: composer
+    visible: root.askVisible
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    height: root.compactAsk ? Math.round(42 * root.fontScale) : Math.round(52 * root.fontScale)
+    color: root.ground
+    border.color: root.hairline
+    border.width: 1
+
+    TextField {
+      id: input
+      anchors.left: parent.left
+      anchors.right: askKeycap.left
+      anchors.leftMargin: Math.round(12 * root.fontScale)
+      anchors.rightMargin: Math.round(10 * root.fontScale)
+      anchors.verticalCenter: parent.verticalCenter
+      height: Math.round(30 * root.fontScale)
+      color: root.accent
+      placeholderTextColor: root.secondary
+      placeholderText: "Ask about this request…"
+      font.family: root.newsreaderItalicFamily !== ""
+        ? root.newsreaderItalicFamily : root.newsreaderFamily
+      font.pixelSize: Math.round(17 * root.fontScale)
+      font.italic: true
+      selectByMouse: true
+      enabled: !root.handled && !root.sessionLost && (!root.waiting
+        || (root.steeringSupported && !root.steeringPending))
+      opacity: root.steeringPending ? 0.45 : 1
+      background: null
+
+      Keys.onPressed: function(event) {
+        if (root.handleFontKey(event) || root.handleMotionTunerKey(event)
+            || root.handleScrollKey(event, true)) {
+          event.accepted = true
+          return
+        }
+        if (event.key === Qt.Key_Tab) {
+          root.focusCycleRequested((event.modifiers & Qt.ShiftModifier) !== 0)
+          event.accepted = true
+        } else if (event.key === Qt.Key_Escape) {
+          root.askEscapeRequested()
+          event.accepted = true
+        } else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
+                   && !(event.modifiers & Qt.ShiftModifier)) {
+          if (root.send(input.text)) input.text = ""
+          event.accepted = true
+        } else if (event.key === Qt.Key_Y && root.pendingPermissionId !== ""
+                   && input.text === "") {
+          root.answerPermission(true)
+          event.accepted = true
+        } else if (event.key === Qt.Key_N && root.pendingPermissionId !== ""
+                   && input.text === "") {
+          root.answerPermission(false)
+          event.accepted = true
+        }
+      }
+    }
+
+    Text {
+      id: askKeycap
+      anchors.right: parent.right
+      anchors.rightMargin: Math.round(12 * root.fontScale)
+      anchors.verticalCenter: parent.verticalCenter
+      width: Math.round(24 * root.fontScale)
+      height: width
+      text: "/"
+      color: root.secondary
+      font.family: root.monoFamily
+      font.pixelSize: Math.round(12 * root.fontScale)
+      horizontalAlignment: Text.AlignHCenter
+      verticalAlignment: Text.AlignVCenter
+
+      Rectangle {
+        anchors.fill: parent
+        color: "transparent"
+        border.color: root.keyBorder
+        border.width: 1
+        radius: Math.round(4 * root.fontScale)
+      }
+    }
+  }
+
+  Component.onCompleted: Qt.callLater(root.updateDockedChoices)
 }

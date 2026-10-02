@@ -145,6 +145,15 @@ from the bar, a notification or the `show-decision-request` skill, brings that
 window to you instead of opening a second. The settings window (Ctrl+,) works
 the same way.
 
+The decision window keeps the question and every ruling visible while the brief
+and conversation scroll. Wide windows put the full choice rows in a fixed
+right-hand decide column; Narrow windows put them after the brief and dock a
+compact strip when they scroll away; Minimum windows keep only the clamped
+question and compact choices. Number keys arm a choice, Enter records an armed
+choice, clicks record directly, `/` focuses the ask line, and the identifiers
+footer (or `IDs ▾` header menu) copies full IDs. Re-summarize refreshes the
+brief and explainer without changing the request or its transport.
+
 The host is a long-lived service, so its environment is fixed when it starts,
 which can be before the desktop has exported the user's `PATH`. It runs node
 through `bridge/node.sh`, which reads the user manager's current `PATH` at each
@@ -200,6 +209,10 @@ machine-specific: it opens the local plugin configured for Gibson as Mike.
 | `WindowHost.qml` | Independent process that owns decision windows and polls their status |
 | `decision-window-host.sh` | Starts the window host and forwards open requests over IPC |
 | `DecisionWindow.qml` | Standalone decision detail window (design: `docs/decision-window/SPEC.md`) |
+| `DecisionChoice.qml` | Density-aware ruling choice row used by the decide regions |
+| `DecisionCompactStrip.qml` | Compact two- or three-column choice dock/strip |
+| `DecisionOutcome.qml` | Inline handled-outcome region |
+| `fonts/` | Bundled Newsreader and IBM Plex faces used only by decision windows |
 | `MotionTuner.qml` | Settings window (Ctrl+,): agent settings and scroll motion |
 | `bridge/compositor.js` | Hyprland and Scottland backends: find and present a window |
 | `bridge/present-window.js` | Presents one of the window host's own windows by title |
