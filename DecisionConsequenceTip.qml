@@ -15,7 +15,7 @@ QQC.Popup {
   property real fontScale: 1
   property string text: root.consequence
   property string fontFamily: root.sansFamily
-  property real fontSize: Math.round(13 * root.fontScale)
+  property real fontSize: Math.round(15 * root.fontScale)
   property bool active: true
   property real edgeMargin: Math.round(8 * fontScale)
   property real anchorGap: Math.round(4 * fontScale)

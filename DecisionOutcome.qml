@@ -36,7 +36,7 @@ Item {
     text: (root.actor === "" ? "" : root.actor + " · ") + root.status
     color: root.foreground
     font.family: root.monoFamily
-    font.pixelSize: Math.round(11 * root.fontScale)
+    font.pixelSize: Math.round(13 * root.fontScale)
     elide: Text.ElideRight
     verticalAlignment: Text.AlignVCenter
   }
@@ -50,7 +50,7 @@ Item {
     text: root.determination
     color: root.secondary
     font.family: root.sansFamily
-    font.pixelSize: Math.round(15 * root.fontScale)
+    font.pixelSize: Math.round(17 * root.fontScale)
     lineHeight: font.pixelSize * 1.45
     lineHeightMode: Text.FixedHeight
     wrapMode: Text.Wrap

@@ -62,10 +62,10 @@ Item {
   signal fontResetRequested()
   signal motionTunerRequested()
 
-  readonly property int bodySize: Math.round(15 * fontScale)
-  readonly property int captionSize: Math.round(11 * fontScale)
-  readonly property int humanMessageSize: Math.round(19 * fontScale)
-  readonly property real askLineHeight: Math.round((root.compactAsk ? 42 : 52) * root.fontScale)
+  readonly property int bodySize: Math.round(17 * fontScale)
+  readonly property int captionSize: Math.round(13 * fontScale)
+  readonly property int humanMessageSize: Math.round(21 * fontScale)
+  readonly property real askLineHeight: Math.round((root.compactAsk ? 64 : 72) * root.fontScale)
   readonly property real bodyHorizontalPadding: Math.round((root.narrowLayout ? 20 : 28) * root.fontScale)
   readonly property real bodyTopPadding: Math.round((root.narrowLayout ? 16 : 22) * root.fontScale)
   readonly property string hostLabel: host === "" ? "this machine" : "the " + host + " gateway"
@@ -1061,7 +1061,7 @@ Item {
                     text: String(modelData)
                     color: root.foreground
                     font.family: root.sansFamily
-                    font.pixelSize: Math.round(13 * root.fontScale)
+                    font.pixelSize: Math.round(15 * root.fontScale)
                     font.weight: Font.Medium
                     font.variableAxes: ({ "wght": 500 })
                     elide: Text.ElideRight
@@ -1265,7 +1265,7 @@ Item {
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.bottom: parent.bottom
-    height: root.compactAsk ? Math.round(42 * root.fontScale) : Math.round(52 * root.fontScale)
+    height: root.askLineHeight
     color: root.ground
     border.color: root.hairline
     border.width: 1
@@ -1277,13 +1277,13 @@ Item {
       anchors.leftMargin: Math.round(12 * root.fontScale)
       anchors.rightMargin: Math.round(10 * root.fontScale)
       anchors.verticalCenter: parent.verticalCenter
-      height: Math.round(30 * root.fontScale)
+      height: Math.round(52 * root.fontScale)
       color: root.accent
       placeholderTextColor: root.secondary
       placeholderText: "Ask about this request…"
       font.family: root.newsreaderItalicFamily !== ""
         ? root.newsreaderItalicFamily : root.newsreaderFamily
-      font.pixelSize: Math.round(17 * root.fontScale)
+      font.pixelSize: Math.round(34 * root.fontScale)
       font.italic: true
       selectByMouse: true
       enabled: !root.handled && !root.sessionLost && (!root.waiting
@@ -1329,7 +1329,7 @@ Item {
       text: "/"
       color: root.secondary
       font.family: root.monoFamily
-      font.pixelSize: Math.round(12 * root.fontScale)
+      font.pixelSize: Math.round(14 * root.fontScale)
       horizontalAlignment: Text.AlignHCenter
       verticalAlignment: Text.AlignVCenter
 

@@ -57,8 +57,29 @@ FloatingWindow {
   readonly property string monoFamily: owner.decisionPlexMonoFamily
   readonly property string monoMediumFamily: owner.decisionPlexMonoMediumFamily
 
-  readonly property bool minimumLayout: root.height < 360
-  readonly property bool wideLayout: !root.minimumLayout && root.width >= 720
+  // Narrow needs the header, the docked choices, the ask line and a few
+  // lines of brief; when that cannot fit, Minimum keeps question and choices.
+  readonly property bool narrowFits: {
+    var scale = root.fontScale
+    var header = (18 + 24 + 8 + 2 * 22 * 1.27 + 14) * scale
+    var footer = root.height >= 480 ? 34 * scale : 0
+    var ask = 64 * scale
+    var body = 3 * 17 * 1.6 * scale
+    return root.height - header - footer - ask - root.minimumStripHeightFor(2) - body >= 0
+  }
+  readonly property bool minimumLayout: root.height < 360 || (!root.wideLayout && !root.narrowFits)
+  // Wide needs every choice to fit its column at least as compact rows;
+  // estimated from window size alone so it cannot feed back into itself.
+  readonly property bool wideChoicesFit: {
+    var scale = root.fontScale
+    var lines = root.height < 560 ? 1 : 2
+    var header = (22 + 24 + 10 + lines * 27 * 1.25 + 20) * scale
+    var footer = root.height >= 480 ? 34 * scale : 0
+    var padding = (root.height < 480 ? 8 : 18) * scale
+    var needed = padding * 2 + 24 * scale + root.choiceData.length * 38 * scale
+    return root.height - header - footer >= needed
+  }
+  readonly property bool wideLayout: root.height >= 360 && root.width >= 720 && root.wideChoicesFit
   readonly property bool narrowLayout: !root.minimumLayout && !root.wideLayout
   readonly property bool footerRoom: !root.minimumLayout && root.height >= 480
   readonly property bool headerIdsVisible: !root.footerRoom
@@ -78,12 +99,12 @@ FloatingWindow {
     : root.headerContentHeight
   readonly property real decidePanelHeight: root.contentAreaHeight
   readonly property real decidePadding: Math.round((root.height < 480 ? 8 : 18) * root.fontScale)
-  readonly property real decideHeadingHeight: Math.round(22 * root.fontScale)
+  readonly property real decideHeadingHeight: Math.round(24 * root.fontScale)
   readonly property real decideContentWidth: Math.max(0, root.decideWidth - root.decidePadding * 2)
   readonly property bool decisionErrorVisible: decisionStatus !== ""
     && decisionStatus.indexOf("Recording “") !== 0
   readonly property real decisionStatusHeight: root.decisionErrorVisible
-    ? Math.round(22 * root.fontScale) : 0
+    ? Math.round(24 * root.fontScale) : 0
   readonly property real decisionChoiceRoom: Math.max(0, root.decidePanelHeight
     - root.decidePadding * 2 - root.decideHeadingHeight - root.decisionStatusHeight)
   readonly property string choiceDensity: root.measureRepeaterHeight(fullMeasureRepeater) <= root.decisionChoiceRoom
@@ -96,8 +117,8 @@ FloatingWindow {
       : root.request ? String(root.request.question || "Decision requested") : "Decision requested"
   readonly property string projectText: root.displayProject()
 
-  implicitWidth: Math.round(820 * root.fontScale)
-  implicitHeight: Math.round(760 * root.fontScale)
+  implicitWidth: Math.round(960 * root.fontScale)
+  implicitHeight: Math.round(720 * root.fontScale)
   minimumSize: Qt.size(320, 300)
   color: root.ground
   title: root.request ? "Decision request — " + root.request.id : "Decision request"
@@ -147,9 +168,18 @@ FloatingWindow {
   FontMetrics {
     id: choiceLabelMetrics
     font.family: root.sansFamily
-    font.pixelSize: Math.round(14 * root.fontScale)
+    font.pixelSize: Math.round(16 * root.fontScale)
     font.variableAxes: ({ "wght": 600 })
   }
+
+  // Mirrors DecisionCompactStrip's own height for a given column count.
+  function minimumStripHeightFor(columns) {
+    var rows = Math.ceil(choiceData.length / Math.max(1, columns))
+    return Math.round(10 * fontScale) * 2 + Math.round(22 * fontScale) + Math.round(6 * fontScale)
+      + rows * Math.round(38 * fontScale) + Math.max(0, rows - 1) * Math.round(2 * fontScale)
+  }
+  // The header in Minimum: padding, eyebrow and one line of the question.
+  readonly property real minimumHeaderFloor: Math.round((16 + 24 + 8 + 21 * 1.25 + 12) * fontScale)
 
   function longestChoiceLabelWidth() {
     var widest = 0
@@ -672,7 +702,7 @@ FloatingWindow {
       Item {
         id: eyebrow
         width: parent.width
-        height: Math.round(22 * root.fontScale)
+        height: Math.round(24 * root.fontScale)
 
         Rectangle {
           id: needsYouDot
@@ -695,7 +725,7 @@ FloatingWindow {
           text: root.projectText
           color: root.ink
           font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
-          font.pixelSize: Math.round(11 * root.fontScale)
+          font.pixelSize: Math.round(13 * root.fontScale)
           font.weight: Font.Medium
           font.variableAxes: ({ "wght": 500 })
           font.letterSpacing: Math.round(1.3 * root.fontScale)
@@ -713,7 +743,7 @@ FloatingWindow {
           text: "·  " + Kinds.info(root.request && root.request.kind).singular.toUpperCase()
           color: root.secondary
           font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
-          font.pixelSize: Math.round(11 * root.fontScale)
+          font.pixelSize: Math.round(13 * root.fontScale)
           font.weight: Font.Medium
           font.variableAxes: ({ "wght": 500 })
           font.letterSpacing: Math.round(1.3 * root.fontScale)
@@ -729,7 +759,7 @@ FloatingWindow {
           text: "·  " + root.formatRaisedAt(root.request && root.request.raisedAt)
           color: root.secondary
           font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
-          font.pixelSize: Math.round(11 * root.fontScale)
+          font.pixelSize: Math.round(13 * root.fontScale)
           font.weight: Font.Medium
           font.variableAxes: ({ "wght": 500 })
           font.letterSpacing: Math.round(1.3 * root.fontScale)
@@ -756,7 +786,7 @@ FloatingWindow {
               text: "↻"
               color: root.secondary
               font.family: root.sansFamily
-              font.pixelSize: Math.round(20 * root.fontScale)
+              font.pixelSize: Math.round(22 * root.fontScale)
             }
 
             MouseArea {
@@ -779,7 +809,7 @@ FloatingWindow {
           Rectangle {
             id: idsButton
             visible: root.headerIdsVisible && root.hasIdentifiers()
-            width: Math.round(62 * root.fontScale)
+            width: Math.round(72 * root.fontScale)
             height: Math.round(28 * root.fontScale)
             radius: height / 2
             color: idsMouse.containsMouse ? root.mixColor(root.ground, root.ink, 0.05) : "transparent"
@@ -791,7 +821,7 @@ FloatingWindow {
               text: "IDs ▾"
               color: root.secondary
               font.family: root.monoFamily
-              font.pixelSize: Math.round(11 * root.fontScale)
+              font.pixelSize: Math.round(13 * root.fontScale)
             }
 
             MouseArea {
@@ -997,13 +1027,14 @@ FloatingWindow {
           text: "DECIDE"
           color: root.ink
           font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
-          font.pixelSize: Math.round(11 * root.fontScale)
+          font.pixelSize: Math.round(13 * root.fontScale)
           font.weight: Font.Medium
           font.variableAxes: ({ "wght": 500 })
           font.letterSpacing: Math.round(1.3 * root.fontScale)
         }
 
         Text {
+          visible: !root.handled
           anchors.right: parent.right
           anchors.verticalCenter: parent.verticalCenter
           text: root.armedChoice >= 0 && root.armedChoice < root.choiceData.length
@@ -1011,7 +1042,7 @@ FloatingWindow {
             : "↑↓  ⏎ or a number"
           color: root.secondary
           font.family: root.monoFamily
-          font.pixelSize: Math.round(11 * root.fontScale)
+          font.pixelSize: Math.round(13 * root.fontScale)
           elide: Text.ElideLeft
         }
       }
@@ -1072,7 +1103,7 @@ FloatingWindow {
         text: root.decisionStatus
         color: root.secondary
         font.family: root.monoFamily
-        font.pixelSize: Math.round(11 * root.fontScale)
+        font.pixelSize: Math.round(13 * root.fontScale)
         elide: Text.ElideRight
         verticalAlignment: Text.AlignVCenter
       }
@@ -1182,9 +1213,12 @@ FloatingWindow {
     x: 0
     y: root.height - height
     width: root.width
-    // Three per row only when the longest label still fits; otherwise two.
-    columns: root.width >= 480 && root.longestChoiceLabelWidth()
-      <= (root.width - Math.round(32 * root.fontScale)) / 3 - Math.round(52 * root.fontScale) ? 3 : 2
+    // Three per row when labels fit, or when two rows' worth would leave the
+    // question less than one line; otherwise two.
+    columns: root.width < 480 ? 2
+      : root.longestChoiceLabelWidth() <= (root.width - Math.round(32 * root.fontScale)) / 3
+          - Math.round(52 * root.fontScale) ? 3
+      : root.height - root.minimumStripHeightFor(2) >= root.minimumHeaderFloor ? 2 : 3
     showLabel: true
     showExplain: false
     hint: root.decisionErrorVisible ? root.decisionStatus : "/ to ask · enlarge for the brief"

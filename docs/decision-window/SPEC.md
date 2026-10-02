@@ -76,9 +76,9 @@ are at font scale 1 and do scale.
 
 | Layout | When | Arrangement |
 |---|---|---|
-| Wide | width ≥ 720 and height ≥ 360 | Header across the top. Below it two columns: reading column (body + ask line) on the left; decide column on the right, 300–340 px (about 38% of the width), on a slightly tinted panel. Footer across the bottom when height ≥ 480; otherwise `IDs ▾` in the header. |
+| Wide | width ≥ 720, height ≥ 360, and every choice fits the decide column at least as compact rows (otherwise Narrow) | Header across the top. Below it two columns: reading column (body + ask line) on the left; decide column on the right, 300–340 px (about 38% of the width), on a slightly tinted panel. Footer across the bottom when height ≥ 480; otherwise `IDs ▾` in the header. |
 | Narrow | width < 720 and height ≥ 360 | One column: header, body, ask line, footer. The full choice buttons sit in the body right after the brief. Whenever they are not fully visible (scrolled above or below the viewport), a docked decide strip appears above the ask line: compact buttons (keycap + label, two per row) plus `explain choices ↑`, which scrolls the full buttons into view. |
-| Minimum | height < 360 (any width) | Header (question clamped to 3 lines, `IDs ▾`) and a decide strip only: compact buttons, three per row when width allows. Body, ask line and footer are hidden; the strip's hint reads `/ to ask · enlarge for the brief`. `/` shows the ask line above the strip; answers are read by enlarging the window. The window never resizes itself. |
+| Minimum | height < 360, or neither Wide nor Narrow fits (Narrow needs its header, the docked choices, the ask line and about three lines of brief) | Header (question clamped to 3 lines, `IDs ▾`) and a decide strip only: compact buttons, three per row when width allows. Body, ask line and footer are hidden; the strip's hint reads `/ to ask · enlarge for the brief`. `/` shows the ask line above the strip; answers are read by enlarging the window. The window never resizes itself. |
 
 Headline clamps: Wide 3 lines (1 line when height < 560), Narrow 4 lines,
 Minimum 3 lines; full text on hover.
@@ -129,19 +129,23 @@ Bundle the fonts with the plugin (`fonts/`, both under the SIL OFL, licence
 files included) and load them with `FontLoader` in the window host. They apply
 to decision windows only; the bar and menus keep the theme font.
 
-Scale at font scale 1:
+Scale at font scale 1 (Mike, 2026-10-01: everything but the headline and the
+footer two sizes up from the mockups; the ask line twice its mockup size):
 
 | Role | Face | Size / line height | Weight |
 |---|---|---|---|
 | Headline | Newsreader | 27 / 1.25 (21 when clamped to 1 line or Minimum, 22 Narrow) | 400 |
-| Section label (`BRIEF`, `DECIDE`) | Plex Mono | 11, letter-spacing 0.12em, upper case | 500 |
-| Eyebrow | Plex Mono | 11, letter-spacing 0.12em, upper case | 500 (project in ink, the rest secondary) |
-| Body / answers | Plex Sans | 15 / 1.6, measure ≤ 70 characters | 400 |
-| Mike's words | Newsreader italic | 19 in the body, 17 in the ask line | 400 |
-| Choice label | Plex Sans | 15 / 1.35 (14 compact) | 600 |
-| Choice consequence | Plex Sans | 13 / 1.45 | 400 |
-| Option word, identifiers | Plex Mono | 11–12 | 400 |
-| Keycap | Plex Mono | 12, in a 24 px rounded square | 400 |
+| Section label (`BRIEF`, `DECIDE`), key hints | Plex Mono | 13, letter-spacing 0.12em, upper case | 500 |
+| Eyebrow | Plex Mono | 13, letter-spacing 0.12em, upper case | 500 (project in ink, the rest secondary) |
+| Body / answers | Plex Sans | 17 / 1.6, measure ≤ 70 characters | 400 |
+| Mike's words | Newsreader italic | 21 in the body, 34 in the ask line | 400 |
+| Choice label | Plex Sans | 17 / 1.35 (16 compact) | 600 |
+| Choice consequence | Plex Sans | 15 / 1.45 | 400 |
+| Option word | Plex Mono | 13 | 400 |
+| Footer identifiers | Plex Mono | 11 | 400 |
+| Keycap | Plex Mono | 14, in a 24 px rounded square | 400 |
+
+The window opens at 960 × 720 (4:3), times the font scale.
 
 ## Color
 

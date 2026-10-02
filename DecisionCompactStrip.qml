@@ -35,9 +35,9 @@ Item {
 
   readonly property real horizontalPadding: Math.round(16 * fontScale)
   readonly property real verticalPadding: Math.round(10 * fontScale)
-  readonly property real headerHeight: Math.round(20 * fontScale)
+  readonly property real headerHeight: Math.round(22 * fontScale)
   readonly property real gap: Math.round(6 * fontScale)
-  readonly property real rowHeight: Math.round(34 * fontScale)
+  readonly property real rowHeight: Math.round(38 * fontScale)
   readonly property int safeColumns: Math.max(1, columns)
   readonly property int rowCount: Math.ceil((choices || []).length / safeColumns)
   readonly property real gridHeight: rowCount * rowHeight
@@ -62,7 +62,7 @@ Item {
     text: "DECIDE"
     color: root.ink
     font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
-    font.pixelSize: Math.round(11 * root.fontScale)
+    font.pixelSize: Math.round(13 * root.fontScale)
     font.weight: Font.Medium
     font.variableAxes: ({ "wght": 500 })
     font.letterSpacing: Math.round(1.3 * root.fontScale)
@@ -79,7 +79,7 @@ Item {
     text: root.hint !== "" ? root.hint : (root.showExplain ? "explain choices ↑" : "")
     color: root.secondary
     font.family: root.monoFamily
-    font.pixelSize: Math.round(11 * root.fontScale)
+    font.pixelSize: Math.round(13 * root.fontScale)
     elide: Text.ElideLeft
     verticalAlignment: Text.AlignVCenter
     horizontalAlignment: Text.AlignRight

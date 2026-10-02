@@ -34,7 +34,7 @@ Item {
   readonly property bool outlined: armed || focused
   readonly property real horizontalPadding: Math.round(12 * fontScale)
   readonly property real verticalPadding: Math.round(10 * fontScale)
-  readonly property real compactHeight: Math.round(34 * fontScale)
+  readonly property real compactHeight: Math.round(38 * fontScale)
   readonly property real compactKeySize: Math.round(24 * fontScale)
   readonly property real textWidth: Math.max(0, width - horizontalPadding * 2 - keySize - keyGap)
   readonly property real keySize: density === "compact"
@@ -45,7 +45,7 @@ Item {
     + (rawText.visible ? Math.round(3 * fontScale) + rawText.implicitHeight : 0)
     + (proposalText.visible ? Math.round(4 * fontScale) + proposalText.implicitHeight : 0)
     + verticalPadding
-  readonly property real clampedHeight: Math.round(56 * fontScale)
+  readonly property real clampedHeight: verticalPadding * 2 + Math.round((17 * 1.35 + 2 + 15 * 1.45) * fontScale)
   readonly property real implicitRowHeight: density === "full"
     ? fullHeight : density === "clamped" ? clampedHeight : compactHeight
 
@@ -78,7 +78,7 @@ Item {
     text: String(root.number)
     color: root.secondary
     font.family: root.monoFamily
-    font.pixelSize: Math.round(12 * root.fontScale)
+    font.pixelSize: Math.round(14 * root.fontScale)
     horizontalAlignment: Text.AlignHCenter
     verticalAlignment: Text.AlignVCenter
 
@@ -107,7 +107,7 @@ Item {
       : (root.proposed && root.density !== "full" ? "proposed · " + root.label : root.label)
     color: root.ink
     font.family: root.sansMediumFamily !== "" ? root.sansMediumFamily : root.sansFamily
-    font.pixelSize: Math.round((root.density === "compact" ? 14 : 15) * root.fontScale)
+    font.pixelSize: Math.round((root.density === "compact" ? 16 : 17) * root.fontScale)
     font.weight: Font.DemiBold
     font.variableAxes: ({ "wght": 600 })
     lineHeight: font.pixelSize * (root.density === "compact" ? 1.3 : 1.35)
@@ -126,7 +126,7 @@ Item {
     text: root.recording ? "Recording…" : root.effect
     color: root.secondary
     font.family: root.sansFamily
-    font.pixelSize: Math.round(13 * root.fontScale)
+    font.pixelSize: Math.round(15 * root.fontScale)
     lineHeight: font.pixelSize * 1.45
     lineHeightMode: Text.FixedHeight
     wrapMode: root.density === "full" ? Text.Wrap : Text.NoWrap
@@ -145,7 +145,7 @@ Item {
     text: root.rawOption
     color: root.faint
     font.family: root.monoFamily
-    font.pixelSize: Math.round(11 * root.fontScale)
+    font.pixelSize: Math.round(13 * root.fontScale)
     elide: Text.ElideRight
     maximumLineCount: 1
   }
@@ -163,7 +163,7 @@ Item {
     text: "proposed in conversation"
     color: root.secondary
     font.family: root.monoFamily
-    font.pixelSize: Math.round(10 * root.fontScale)
+    font.pixelSize: Math.round(12 * root.fontScale)
     elide: Text.ElideRight
     maximumLineCount: 1
   }
