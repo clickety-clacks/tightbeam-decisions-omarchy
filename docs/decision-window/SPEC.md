@@ -100,10 +100,11 @@ The full consequence is available on hover and focus in every density.
   ask line. Selecting arms it: the row gets the focus outline and the hint
   becomes `⏎ to record "<label>"`. Enter (or the same number again) records it.
   Clicking a button records it directly, as today.
-- In the decide region, ↑↓ move between choices and Enter records.
+- ↑↓ move between choices from anywhere except the ask line (the first
+  press selects the armed choice, or the first or last); Enter records.
 - `/` focuses the ask line; Esc leaves it. Tab cycles body → decide → ask.
-- Body scrolling keys stay as they are (arrows, Ctrl+hjkl, PageUp/PageDown,
-  Ctrl+u/d, the tuned keyboard motion).
+- The body scrolls with Ctrl+hjkl, PageUp/PageDown, Ctrl+u/d and the wheel
+  (the tuned keyboard motion); bare arrows belong to the choices.
 - Ctrl+, opens settings; Ctrl + / − / 0 change font scale.
 - An explainer `rule` proposal arms that choice and marks it `proposed in
   conversation`; Mike still confirms with Enter or a click.

@@ -112,8 +112,8 @@ FloatingWindow {
       ? "clamped" : "compact"
   readonly property string questionText: root.questionSummary !== ""
     ? root.questionSummary
-    : root.request && String(root.request.subject || "") !== ""
-      ? String(root.request.subject)
+    : root.request && root.displayText(root.request.subject) !== ""
+      ? root.displayText(root.request.subject)
       : root.request ? String(root.request.question || "Decision requested") : "Decision requested"
   readonly property string projectText: root.displayProject()
 
@@ -186,6 +186,12 @@ FloatingWindow {
     for (var index = 0; index < choiceData.length; index++)
       widest = Math.max(widest, choiceLabelMetrics.advanceWidth(String(choiceData[index].label || "")))
     return widest
+  }
+
+  // Agents prefix handoff text with provenance markers (<engram-src id="…"/>);
+  // they are for tools, not for reading.
+  function displayText(value) {
+    return String(value || "").replace(/<engram-src\b[^>]*\/?>/g, "").replace(/\s+/g, " ").trim()
   }
 
   function script(name) { return owner.script(name) }
@@ -307,7 +313,7 @@ FloatingWindow {
     var workItem = String(root.request && root.request.workItemId || "")
     if (workItem !== "") result.push({
       label: "plan", value: workItem,
-      display: shortPlan(root.request.subject || root.parentSummary || "work item", root.hasPlanUrl()),
+      display: shortPlan(root.displayText(root.request.subject) || root.parentSummary || "work item", root.hasPlanUrl()),
       opens: root.hasPlanUrl()
     })
     var requestId = String(root.request && root.request.id || "")
@@ -478,6 +484,14 @@ FloatingWindow {
         armChoice(numberIndex)
         return true
       }
+    }
+    // ↑↓ always move through the choices (Mike, 2026-10-01); the body
+    // scrolls with Ctrl+j/k, PageUp/PageDown and the wheel.
+    if (!handled && !replying && choiceData.length > 0 && !choiceFocusActive
+        && (event.key === Qt.Key_Up || event.key === Qt.Key_Down)
+        && (event.modifiers & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier)) === 0) {
+      focusChoice(armedChoice >= 0 ? armedChoice : (event.key === Qt.Key_Up ? choiceData.length - 1 : 0))
+      return true
     }
     if (choiceFocusActive && !handled) {
       if (event.key === Qt.Key_Up || event.key === Qt.Key_Left) {
@@ -1024,6 +1038,7 @@ FloatingWindow {
         Text {
           anchors.left: parent.left
           anchors.verticalCenter: parent.verticalCenter
+          id: decideLabel
           text: "DECIDE"
           color: root.ink
           font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
@@ -1035,15 +1050,18 @@ FloatingWindow {
 
         Text {
           visible: !root.handled
+          anchors.left: decideLabel.right
+          anchors.leftMargin: Math.round(12 * root.fontScale)
           anchors.right: parent.right
           anchors.verticalCenter: parent.verticalCenter
+          horizontalAlignment: Text.AlignRight
           text: root.armedChoice >= 0 && root.armedChoice < root.choiceData.length
             ? "⏎ to record \"" + root.choiceData[root.armedChoice].label + "\""
             : "↑↓  ⏎ or a number"
           color: root.secondary
           font.family: root.monoFamily
           font.pixelSize: Math.round(13 * root.fontScale)
-          elide: Text.ElideLeft
+          elide: Text.ElideRight
         }
       }
 

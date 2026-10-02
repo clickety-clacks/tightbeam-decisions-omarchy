@@ -1177,7 +1177,14 @@ Item {
           MouseArea {
             anchors.fill: parent
             cursorShape: Qt.PointingHandCursor
-            onClicked: root.originalExpanded = !root.originalExpanded
+            onClicked: {
+              root.originalExpanded = !root.originalExpanded
+              // It opens below the fold; bring it into view so the click shows something.
+              if (root.originalExpanded) Qt.callLater(function() {
+                log.cancelFlick()
+                log.contentY = Math.max(0, Math.min(log.contentHeight - log.height, originalRequest.y))
+              })
+            }
           }
         }
 
