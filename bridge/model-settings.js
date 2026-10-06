@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveHarness } from './harness-policy.js';
-import { claudeModelVersions, labelWithVersion } from './model-versions.js';
+import { claudeModelVersions, codexModelCatalog, labelWithVersion } from './model-versions.js';
 
 export function effectiveSelection(shared, fallback, role, env = process.env) {
   const provider = resolveHarness({ ...env, DR_AGENT: shared.provider || fallback.provider || env.DR_AGENT });
@@ -42,6 +42,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const catalog = JSON.parse(await readFile(new URL('./model-catalog.json', import.meta.url), 'utf8'));
     const fallback = JSON.parse(await readFile(new URL('../summarizers.json', import.meta.url), 'utf8'));
     const path = process.env.DR_MODEL_SETTINGS_PATH || join(process.env.HOME, '.config/omarchy/tightbeam-decisions-model.json');
+    if (process.argv[2] !== 'save' || process.argv[3] === 'codex')
+      catalog.codex = await codexModelCatalog(catalog.codex);
     const selected = process.argv[2] === 'save'
       ? await saveSelection(path, process.argv[3], process.argv[4], catalog, process.argv[5] || '')
       : await readSelection(path, fallback, catalog);
