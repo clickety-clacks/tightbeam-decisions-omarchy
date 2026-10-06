@@ -87,9 +87,12 @@ to levels supported by the selected model. Model default leaves the harness defa
 unchanged. The Close button stays visible above the scrolling settings content.
 QML installation can reload open DR windows: obtain approval before installing.
 
-The model catalog uses the installed adapters' identifiers. `bridge/probe-models.js`
-exercises real ACP selection and a minimal generation. All six Codex entries
-passed on Plumbus with system Codex 0.154.0 on September 13; results are in
+The Codex picker reads the installed adapter's model options at runtime. It
+caches the result for one hour in
+`~/.local/state/omarchy-tightbeam-decisions/codex-models.json` and falls back
+to `bridge/model-catalog.json` if discovery fails. `bridge/probe-models.js`
+exercises real ACP selection and a minimal generation. The six original Codex
+entries passed on Plumbus with system Codex 0.154.0 on September 13; results are in
 `bridge/model-probe-results-codex-plumbus.json`. All five Claude entries passed
 on osanwe with system Claude Code 2.1.280 on September 23; results are in
 `bridge/model-probe-results-claude-osanwe.json`. Earlier failed Plumbus probes,
@@ -98,7 +101,7 @@ from when Claude was not logged in there, are preserved in
 
 Claude aliases such as `opus[1m]` follow the installed Claude Code release. The
 picker asks the harness which version each alias names (no prompt is sent) and
-shows it, e.g. "Opus 5.5 (1M)". The answer is cached per Claude Code version in
+shows it, e.g. "Opus 5.5 (1M)". The answer is cached for one hour per Claude Code version in
 `~/.local/state/omarchy-tightbeam-decisions/claude-model-versions.json`; if the
 lookup fails, the catalog label is shown instead.
 

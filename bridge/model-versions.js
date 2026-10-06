@@ -11,13 +11,24 @@ import { resolveExecutable } from './harness-policy.js';
 const here = dirname(fileURLToPath(import.meta.url));
 
 export function versionedName(description) {
-  const head = String(description || '').split(' · ')[0].replace(/\s+with\s+1M context$/i, '').trim();
+  const head = String(description || '').split(' · ')[0]
+    .replace(/\s+with\s+1M context$/i, '')
+    .replace(/\s*\(1M(?: context)?\)$/i, '').trim();
   return /\d/.test(head.replace(/\([^)]*\)/g, '')) ? head : '';
 }
 
 export function labelWithVersion(entry, versions) {
-  const name = versions[entry.id];
+  const name = versions[entry.id] || (entry.id.endsWith('[1m]') ? versions[entry.id.slice(0, -4)] : '');
   return name ? { ...entry, label: name + (entry.id.endsWith('[1m]') ? ' (1M)' : '') } : entry;
+}
+
+export function claudeVersionLabels(models) {
+  const versions = {};
+  for (const { value, name: displayName, description } of models) {
+    const name = versionedName(displayName) || versionedName(description);
+    if (value !== 'default' && name) versions[value] = name;
+  }
+  return versions;
 }
 
 async function harnessVersion(env) {
@@ -25,10 +36,10 @@ async function harnessVersion(env) {
   return stdout.trim().split(/\s+/)[0];
 }
 
-function listModels(env, timeoutMs = 15000) {
+export function listHarnessOptions(provider, env, timeoutMs = 15000) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [join(here, 'bridge.js')], {
-      env: { ...env, DR_TEST_PROVIDER: 'claude', DR_TEST_MODEL: '', DR_INSPECT_CONFIG: '1' },
+      env: { ...env, DR_TEST_PROVIDER: provider, DR_TEST_MODEL: '', DR_INSPECT_CONFIG: '1' },
       stdio: ['pipe', 'pipe', 'ignore'],
     });
     const finish = (error, versions) => { clearTimeout(timer); child.kill(); error ? reject(error) : resolve(versions); };
@@ -44,18 +55,34 @@ function listModels(env, timeoutMs = 15000) {
         try { event = JSON.parse(line); } catch { continue; }
         if (event.type === 'fatal') return finish(new Error(event.message));
         if (event.type !== 'config_options') continue;
-        const models = event.configOptions.find(option => option.category === 'model')?.options || [];
-        const versions = {};
-        for (const { value, description } of models) {
-          const name = versionedName(description);
-          if (value !== 'default' && name) versions[value] = name;
-        }
-        return finish(null, versions);
+        return finish(null, event.configOptions || []);
       }
     });
     child.on('error', finish);
     child.on('exit', () => finish(new Error('Claude model listing ended early')));
   });
+}
+
+export async function codexModelCatalog(fallback, env = process.env) {
+  const path = env.DR_CODEX_MODELS_PATH || join(env.HOME, '.local/state/omarchy-tightbeam-decisions/codex-models.json');
+  let cached;
+  try { cached = JSON.parse(await readFile(path, 'utf8')); } catch {}
+  const previous = Array.isArray(cached?.models) && cached.models.length ? cached.models : fallback;
+  if (previous !== fallback && Date.now() - cached.fetchedAt < 60 * 60 * 1000) return previous;
+  try {
+    const options = await listHarnessOptions('codex', env);
+    const models = options.find(option => option.category === 'model')?.options || [];
+    const catalog = models.filter(option => option.value && option.value !== 'default')
+      .map(option => ({ id: option.value, label: option.name || option.value }));
+    if (!catalog.length) return previous;
+    await mkdir(dirname(path), { recursive: true });
+    const temporary = `${path}.${process.pid}.tmp`;
+    await writeFile(temporary, JSON.stringify({ fetchedAt: Date.now(), models: catalog }, null, 2) + '\n');
+    await rename(temporary, path);
+    return catalog;
+  } catch {
+    return previous;
+  }
 }
 
 export async function claudeModelVersions(env = process.env) {
@@ -64,11 +91,14 @@ export async function claudeModelVersions(env = process.env) {
     const cliVersion = await harnessVersion(env);
     let cached;
     try { cached = JSON.parse(await readFile(path, 'utf8')); } catch {}
-    if (cached?.cliVersion === cliVersion) return cached.versions;
-    const versions = await listModels(env);
+    if (cached?.cliVersion === cliVersion && Object.keys(cached.versions || {}).length
+        && Date.now() - cached.fetchedAt < 60 * 60 * 1000) return cached.versions;
+    const options = await listHarnessOptions('claude', env);
+    const models = options.find(option => option.category === 'model')?.options || [];
+    const versions = claudeVersionLabels(models);
     await mkdir(dirname(path), { recursive: true });
     const temporary = `${path}.${process.pid}.tmp`;
-    await writeFile(temporary, JSON.stringify({ cliVersion, versions }, null, 2) + '\n');
+    await writeFile(temporary, JSON.stringify({ cliVersion, fetchedAt: Date.now(), versions }, null, 2) + '\n');
     await rename(temporary, path);
     return versions;
   } catch {
