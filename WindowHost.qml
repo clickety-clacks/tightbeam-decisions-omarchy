@@ -98,6 +98,12 @@ ShellRoot {
     })
     if (job) job.running = true
   }
+  function attentionWindow(title) {
+    var job = presentFactory.createObject(root, {
+      command: [script("bridge/node.sh"), script("bridge/attention-window.js"), String(title)]
+    })
+    if (job) job.running = true
+  }
   function windowForRequest(id) {
     for (var index = 0; index < detailWindows.length; index++)
       if (detailWindows[index] && !detailWindows[index].closing
