@@ -15,6 +15,8 @@ Item {
   property bool proposed: false
   property bool recording: false
   property bool interactive: true
+  property bool activationAllowed: true
+  property bool pressAllowed: false
   property bool tooltipsEnabled: true
   property real fontScale: 1
   property string sansFamily: ""
@@ -174,8 +176,11 @@ Item {
     enabled: root.interactive
     hoverEnabled: true
     cursorShape: Qt.PointingHandCursor
-    onPressed: root.focusedByUser()
-    onClicked: root.activated()
+    onPressed: {
+      root.pressAllowed = root.activationAllowed
+      root.focusedByUser()
+    }
+    onClicked: if (root.pressAllowed) root.activated()
   }
 
   HoverHandler {

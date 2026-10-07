@@ -16,6 +16,7 @@ Item {
   property int hoveredIndex: -1
   property bool focusActive: false
   property bool interactive: true
+  property bool activationAllowed: true
   property string recordingChoice: ""
   property string sansFamily: ""
   property string sansMediumFamily: ""
@@ -133,6 +134,7 @@ Item {
         recording: root.recordingChoice !== ""
           && String(modelData.rawOption || "") === root.recordingChoice
         interactive: root.interactive && !modelData.disabled
+        activationAllowed: root.activationAllowed
         tooltipsEnabled: root.interactive
         fontScale: root.fontScale
         sansFamily: root.sansFamily
