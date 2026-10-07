@@ -168,8 +168,8 @@ launch so the bridge, `codex` and `claude` are always found.
 
 The plugin runs on Hyprland and on Scottland. `bridge/compositor.js` is the
 only code that talks to the compositor, adapted from Ask's module of the same
-name. It picks a backend from `XDG_CURRENT_DESKTOP`; window lookup goes through
-the Hyprland IPC, which Scottland's shim also serves. Bringing a window to you
+name. It picks a backend from `XDG_CURRENT_DESKTOP`; Hyprland window lookup uses
+Hyprland IPC, while Scottland reads the Wayfire socket directly. Bringing a window to you
 ("present") differs:
 
 | | Hyprland | Scottland |

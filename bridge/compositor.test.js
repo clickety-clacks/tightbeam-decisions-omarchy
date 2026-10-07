@@ -26,6 +26,23 @@ test('Scottland presents by window id', async () => {
   assert.deepEqual(calls, [['scottland/present', { window: 0x23a }]]);
 });
 
+test('Scottland finds mapped windows from Wayfire without the Hyprland shim', async () => {
+  const windows = await backends.scottland.clients(async (method, data) => {
+    assert.equal(method, 'window-rules/list-views');
+    assert.deepEqual(data, {});
+    return [
+      { role: 'toplevel', mapped: true, id: 0x23a, pid: 7, title: 'Decision request — dr_1' },
+      { role: 'toplevel', mapped: true, id: 0x23b, pid: 7, title: 'Decision request — dr_2' },
+      { role: 'toplevel', mapped: false, id: 0x23c, pid: 7, title: 'Hidden' },
+    ];
+  });
+  assert.deepEqual(windows, [
+    { title: 'Decision request — dr_1', pid: 7, stableId: '23a' },
+    { title: 'Decision request — dr_2', pid: 7, stableId: '23b' },
+  ]);
+  assert.equal(matchWindow(windows, { title: 'Decision request — dr_2', pid: 7 }).stableId, '23b');
+});
+
 test('Scottland marks each finished window for attention by its own id', async () => {
   const calls = [];
   for (const stableId of ['0000023a', '0000023b']) {
@@ -45,7 +62,7 @@ test('Scottland marks each finished window for attention by its own id', async (
 });
 
 test('an address that is not hexadecimal never reaches the compositor', async () => {
-  assert.equal(await backends.scottland.presentWindow({ address: '0x1; rm', stableId: '1' },
+  assert.equal(await backends.scottland.presentWindow({ address: '0x1; rm', stableId: 'invalid' },
     async () => { throw new Error('called'); }), false);
   assert.equal(await backends.hyprland.presentWindow({ address: 'nope' }), false);
 });

@@ -1,9 +1,7 @@
 // The only place this plugin talks to the compositor. Adapted from Ask's
 // bridge/compositor.js (omarchy-ask); keep the two in step until they share a
-// package. Hyprland and Scottland are both supported: window records keep
-// Hyprland's client shape (address, stableId, pid, title), which Scottland's
-// Omarchy adapter serves through its Hyprland IPC shim, so one lookup works
-// on both. Only the "present" verb differs.
+// package. Scottland reads its Wayfire socket directly, because a long-lived
+// window host can inherit a Hyprland shim address from an earlier session.
 
 import { execFile } from "node:child_process";
 import { createConnection } from "node:net";
@@ -83,12 +81,20 @@ export function wayfireCall(method, data, socketPath = wayfireSocket(), timeoutM
 
 // Scottland's present request (core L30) opens a widget back into its window
 // and brings a side window to the middle at 100%, raised and focused. The
-// shim's stableId is the Scottland window id in hex. A Scottland build
-// without the request still gets the window focused through the shim, which
-// answers `dispatch` but not `eval`.
+// stableId is the Scottland window id in hex. An older Scottland build can
+// still fall back to the shim when a shim address is available.
 const scottland = {
   name: "scottland",
-  clients,
+  async clients(call = wayfireCall) {
+    const views = await call("window-rules/list-views", {});
+    if (!Array.isArray(views)) throw new Error("Scottland did not return a window list");
+    return views.filter((view) => view.role === "toplevel" && view.mapped)
+      .map((view) => ({
+        title: view.title,
+        pid: view.pid,
+        stableId: Number(view.id).toString(16),
+      }));
+  },
   async attendWindow(window, call = wayfireCall) {
     const id = Number.parseInt(String(window?.stableId || ""), 16);
     if (!Number.isSafeInteger(id) || id <= 0) return false;
@@ -98,8 +104,6 @@ const scottland = {
     return !!reply && !reply.error && reply.result !== "error";
   },
   async presentWindow(window, call = wayfireCall) {
-    const address = String(window?.address || "");
-    if (!addressPattern.test(address)) return false;
     try {
       const id = Number.parseInt(String(window?.stableId || ""), 16);
       if (Number.isSafeInteger(id) && id > 0) {
@@ -107,6 +111,8 @@ const scottland = {
         if (reply && !reply.error && reply.result !== "error") return true;
       }
     } catch { }
+    const address = String(window?.address || "");
+    if (!addressPattern.test(address)) return false;
     await execFileAsync("hyprctl", ["dispatch", focusCommand(address)], { timeout: 1200 });
     return true;
   },
