@@ -153,10 +153,14 @@ the brief and conversation scroll. The choice buttons sit in the body right
 after the brief, each with its consequence and number key; when they scroll out
 of view a compact strip of them docks above the ask box. Windows too small for
 that keep only the question and the compact choices. ↑↓ or a number key arms a
-choice, Enter records it, clicks record directly, `/` focuses the ask box (which
-grows to two thirds of the window), and the identifiers footer (or the `IDs ▾`
-header menu) copies full IDs. Re-summarize refreshes the brief and explainer
-without changing the request. Windows open at 3:4. The design is
+choice, Enter records it, clicks record when the window is already focused,
+and a first click in an unfocused window only focuses it. Wheel scrolling still
+works without focus. Your chat prompts use larger type. `/` focuses the ask box
+(which grows to two thirds of the window), and the identifiers footer (or the
+`IDs ▾` header menu) copies full IDs. A handled request shows its ruling in a
+large window-covering panel with a prominent Close button. Re-summarize
+refreshes the brief and explainer without changing the request. Windows open at
+3:4. The design is
 `docs/decision-window/SPEC.md`.
 
 The host is a long-lived service, so its environment is fixed when it starts,
@@ -218,7 +222,7 @@ machine-specific: it opens the local plugin configured for Gibson as Mike.
 | `DecisionChoice.qml` | One ruling choice: label, consequence, option word and key |
 | `DecisionCompactStrip.qml` | Compact two- or three-column choice dock/strip |
 | `DecisionConsequenceTip.qml` | Single row-anchored consequence tooltip for compact choices |
-| `DecisionOutcome.qml` | Inline handled-outcome region |
+| `DecisionOutcome.qml` | Full-window handled-outcome panel |
 | `fonts/` | Bundled Newsreader and IBM Plex faces used only by decision windows |
 | `MotionTuner.qml` | Settings window (Ctrl+,): agent settings and scroll motion |
 | `bridge/compositor.js` | Hyprland and Scottland backends: find and present a window |

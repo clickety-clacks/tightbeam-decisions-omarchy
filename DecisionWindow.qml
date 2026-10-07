@@ -39,6 +39,9 @@ FloatingWindow {
   property bool choiceFocusActive: false
   property bool minimumAskRevealed: false
   property var choiceData: []
+  property bool blockActivationClick: false
+  readonly property var nativeWindow: root.contentItem ? root.contentItem.Window.window : null
+  readonly property bool windowActive: nativeWindow ? nativeWindow.active : false
 
   readonly property real fontScale: owner.fontScale
   readonly property color ground: Color.background
@@ -81,7 +84,7 @@ FloatingWindow {
   readonly property real contentAreaHeight: Math.max(0,
     root.height - root.headerHeight - root.footerHeight)
   readonly property real headerHeight: root.minimumLayout
-    ? Math.max(0, root.height - (root.handled ? minimumOutcome.height : minimumStrip.height)
+    ? Math.max(0, root.height - minimumStrip.height
       - (root.minimumAskRevealed ? chat.askLineHeight : 0))
     : root.headerContentHeight
   readonly property bool decisionErrorVisible: decisionStatus !== ""
@@ -366,6 +369,23 @@ FloatingWindow {
     submitChoice(choiceData[index].rawOption)
   }
 
+  function submitChoiceFromClick(choiceLabel) {
+    if (!windowActive || blockActivationClick) {
+      requestWindowFocus()
+      return
+    }
+    submitChoice(choiceLabel)
+  }
+
+  function submitChoiceByIndexFromClick(index) {
+    if (index < 0 || index >= choiceData.length) return
+    submitChoiceFromClick(choiceData[index].rawOption)
+  }
+
+  function requestWindowFocus() {
+    if (nativeWindow && !nativeWindow.active) nativeWindow.requestActivate()
+  }
+
   function submitChoice(choiceLabel) {
     if (handled) return
     if (replying) {
@@ -540,14 +560,15 @@ FloatingWindow {
   function markHandled() {
     if (handled) return
     replying = false
-    selectedChoice = ""
     handled = true
     decisionStatus = ""
     chat.handled = true
     chat.stop(false, false)
     summaryProcess.running = false
-    handledProcess.command = [script("handled.sh"), tbHost, tbAsUser, request.id]
+    handledProcess.command = [script("handled.sh"), tbHost, tbAsUser, request.id,
+      String(request.workItemId || "")]
     handledProcess.running = true
+    Qt.callLater(function() { outcome.focusModal() })
   }
 
   function applyHandledPayload(raw) {
@@ -555,7 +576,10 @@ FloatingWindow {
       var payload = JSON.parse(String(raw || ""))
       handledStatus = String(payload.status || "handled")
       handledActor = String(payload.actor || "")
-      handledDetermination = String(payload.determination || "The request is no longer open.")
+      var ruling = String(payload.determination || "The request is no longer open.")
+      if (handledStatus === "ruled" && selectedChoice !== "")
+        ruling = selectedChoice
+      handledDetermination = handledStatus === "ruled" ? displayLabelForOption(ruling) : ruling
     } catch (error) {
       handledDetermination = "The request is no longer open; its recorded outcome could not be loaded."
     }
@@ -596,6 +620,25 @@ FloatingWindow {
       waitForEnd: true
       onStreamFinished: if (String(text || "").trim() !== "")
         root.handledDetermination = "The request is no longer open; its recorded outcome could not be loaded."
+    }
+  }
+
+  Timer {
+    id: activationClickTimer
+    interval: 180
+    onTriggered: root.blockActivationClick = false
+  }
+
+  Connections {
+    target: root.nativeWindow
+    function onActiveChanged() {
+      if (root.nativeWindow && root.nativeWindow.active) {
+        root.blockActivationClick = true
+        activationClickTimer.restart()
+      } else {
+        root.blockActivationClick = false
+        activationClickTimer.stop()
+      }
     }
   }
 
@@ -932,13 +975,12 @@ FloatingWindow {
     id: chat
     x: 0
     y: root.minimumLayout
-      ? (root.handled ? minimumOutcome.y : minimumStrip.y)
+      ? minimumStrip.y
         - (root.minimumAskRevealed ? askLineHeight : 0)
       : contentArea.y
     width: root.width
     height: root.minimumLayout
-      ? (root.minimumAskRevealed ? askLineHeight : 0) : Math.max(0, contentArea.height
-        - (root.handled ? narrowOutcome.height : 0))
+      ? (root.minimumAskRevealed ? askLineHeight : 0) : contentArea.height
     visible: !root.minimumLayout || root.minimumAskRevealed
     request: root.request
     host: root.tbHost
@@ -970,6 +1012,7 @@ FloatingWindow {
     recordingChoice: root.selectedChoice
     decisionStatus: root.decisionStatus
     handled: root.handled
+    rulingClicksEnabled: root.windowActive && !root.blockActivationClick
     narrowLayout: root.narrowLayout
     minimumMode: root.minimumLayout
     compactAsk: !root.wideLayout
@@ -982,7 +1025,7 @@ FloatingWindow {
     keyAction: function(event) { return root.handleKey(event) }
     bodyVisible: !root.minimumLayout
     askVisible: !root.minimumLayout || root.minimumAskRevealed
-    ruleAction: function(choiceLabel) { root.submitChoice(choiceLabel) }
+    ruleAction: function(choiceLabel) { root.submitChoiceFromClick(choiceLabel) }
     onChoiceFocused: function(index) { root.focusChoice(index) }
     onFocusCycleRequested: function(backwards) { root.cycleFocus(backwards) }
     onAskEscapeRequested: root.leaveAsk()
@@ -1023,6 +1066,7 @@ FloatingWindow {
     focusActive: root.choiceFocusActive
     recordingChoice: root.selectedChoice
     interactive: !root.replying
+    activationAllowed: root.windowActive && !root.blockActivationClick
     sansFamily: root.sansFamily
     sansMediumFamily: root.sansFamily
     monoFamily: root.monoFamily
@@ -1035,47 +1079,7 @@ FloatingWindow {
     hairline: root.hairline
     keyBorder: root.keyBorder
     onChoiceFocused: root.focusChoice(index)
-    onChoiceActivated: root.submitChoiceByIndex(index)
-  }
-
-  DecisionOutcome {
-    id: narrowOutcome
-    visible: !root.minimumLayout && root.handled
-    x: 0
-    y: contentArea.y + Math.max(0, contentArea.height - height)
-    width: root.width
-    height: root.handled
-      ? Math.min(Math.max(96 * root.fontScale, implicitHeight), contentArea.height) : 0
-    status: root.handledStatus
-    actor: root.handledActor
-    determination: root.handledDetermination
-    fontScale: root.fontScale
-    sansFamily: root.sansFamily
-    monoFamily: root.monoFamily
-    foreground: root.ink
-    secondary: root.secondary
-    hairline: root.hairline
-    background: root.panel
-  }
-
-  DecisionOutcome {
-    id: minimumOutcome
-    visible: root.minimumLayout && root.handled
-    x: 0
-    y: root.height - height
-    width: root.width
-    height: root.handled
-      ? Math.min(Math.max(96 * root.fontScale, implicitHeight), root.height) : 0
-    status: root.handledStatus
-    actor: root.handledActor
-    determination: root.handledDetermination
-    fontScale: root.fontScale
-    sansFamily: root.sansFamily
-    monoFamily: root.monoFamily
-    foreground: root.ink
-    secondary: root.secondary
-    hairline: root.hairline
-    background: root.panel
+    onChoiceActivated: root.submitChoiceByIndexFromClick(index)
   }
 
   Item {
@@ -1119,6 +1123,46 @@ FloatingWindow {
         }
       }
     }
+  }
+
+  DecisionOutcome {
+    id: outcome
+    anchors.fill: parent
+    z: 100
+    visible: root.handled
+    status: root.handledStatus
+    determination: root.handledDetermination
+    question: root.questionText
+    fontScale: root.fontScale
+    newsreaderFamily: root.newsreaderFamily
+    sansFamily: root.sansFamily
+    monoFamily: root.monoFamily
+    ground: root.ground
+    panel: root.panel
+    foreground: root.ink
+    secondary: root.secondary
+    hairline: root.hairline
+    onCloseRequested: root.closeWindow()
+  }
+
+  MouseArea {
+    // An inactive decision window uses the first click to take focus. Wheel
+    // events pass through so the brief and conversation still scroll.
+    anchors.fill: parent
+    z: 200
+    visible: root.visible && !root.windowActive
+    acceptedButtons: Qt.AllButtons
+    scrollGestureEnabled: false
+    onPressed: root.requestWindowFocus()
+    onReleased: {
+      root.blockActivationClick = false
+      activationClickTimer.stop()
+    }
+    onCanceled: {
+      root.blockActivationClick = false
+      activationClickTimer.stop()
+    }
+    onWheel: function(wheel) { wheel.accepted = false }
   }
 
   Connections {

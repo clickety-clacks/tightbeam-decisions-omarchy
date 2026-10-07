@@ -105,11 +105,13 @@ wide; full text on hover.
 - Ctrl+, opens settings; Ctrl + / − / 0 change font scale.
 - An explainer `rule` proposal arms that choice and marks it `proposed in
   conversation`; Mike still confirms with Enter or a click.
-- Recording: the chosen row shows `Recording…`; other rows are disabled. No
-  full-window overlay.
-- Handled (recorded here or elsewhere): the decide region is replaced by the
-  outcome (status, actor, determination, as `handled.sh` reports it). The body
-  and identifiers stay readable.
+- An unfocused window takes focus on the first click anywhere in it. Ruling
+  choices record only when the window was already focused at press time. The
+  brief and conversation can still scroll while the window is unfocused.
+- Recording: the chosen row shows `Recording…`; other rows are disabled.
+- Handled (recorded here or elsewhere): a large centered outcome panel covers
+  the window, shows the recorded ruling, and offers a prominent Close button.
+  Escape and Enter also close it.
 - Errors (bridge missing, session lost, recording failed) show as one line in
   the region they affect, never as an overlay.
 
@@ -137,7 +139,7 @@ its mockup size):
 | Section label (`BRIEF`, `DECIDE`), key hints | Plex Mono | 13, letter-spacing 0.12em, upper case | 500 |
 | Eyebrow | Plex Mono | 13, letter-spacing 0.12em, upper case | 500 (project in ink, the rest secondary) |
 | Body / answers | Plex Sans | 19 / 1.6, measure ≤ 70 characters | 400 |
-| Mike's words | Newsreader italic | 21 in the body, 34 in the ask line | 400 |
+| Mike's words | Newsreader italic | 25 in the body, 34 in the ask line | 400 |
 | Choice label | Plex Sans | 19 / 1.35 (16 compact) | 600 |
 | Choice consequence | Plex Sans | 17 / 1.45 | 400 |
 | Option word | Plex Mono | 13 | 400 |

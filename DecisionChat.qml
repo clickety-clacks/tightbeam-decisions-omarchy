@@ -42,6 +42,7 @@ Item {
   property int proposedChoice: -1
   property bool recording: false
   property bool handled: false
+  property bool rulingClicksEnabled: true
   property bool narrowLayout: false
   property bool minimumMode: false
   property bool compactAsk: false
@@ -69,7 +70,8 @@ Item {
 
   readonly property int bodySize: Math.round(19 * fontScale)
   readonly property int captionSize: Math.round(13 * fontScale)
-  readonly property int humanMessageSize: Math.round(21 * fontScale)
+  readonly property int humanMessageSize: Math.max(Math.round(25 * fontScale),
+    Math.round(21 * fontScale) + 4)
   // The window's height, for capping the ask box at two thirds of it.
   property real windowHeight: 0
   // Two thirds of the window, but never so tall that the docked choices
@@ -1002,6 +1004,7 @@ Item {
             proposed: root.proposedChoice === index
             recording: root.recording && String(modelData.rawOption || "") === root.recordingChoice
             interactive: !root.recording && !root.handled
+            activationAllowed: root.rulingClicksEnabled
             fontScale: root.fontScale
             sansFamily: root.sansFamily
             sansMediumFamily: root.sansFamily
@@ -1300,6 +1303,7 @@ Item {
     proposedIndex: root.proposedChoice
     focusActive: root.focusedChoice >= 0
     interactive: !root.recording && !root.handled
+    activationAllowed: root.rulingClicksEnabled
     sansFamily: root.sansFamily
     sansMediumFamily: root.sansFamily
     monoFamily: root.monoFamily
