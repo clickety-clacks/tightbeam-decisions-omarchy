@@ -179,8 +179,9 @@ the Hyprland IPC, which Scottland's shim also serves. Bringing a window to you
 | Window turned into a rail widget | — | opens back into its window in the middle |
 
 When an agent finishes a reply in a window you are not using, the window asks
-for attention (xdg-activation). Scottland shows that as its attention halo on
-the window or its widget and does not take focus.
+for attention. Scottland receives a request for that exact window through its
+attention IPC and shows the halo on the window or its widget without taking
+focus. Hyprland receives the window's normal activation request.
 
 ## Agent skill
 

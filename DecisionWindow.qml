@@ -988,8 +988,12 @@ FloatingWindow {
     onAskEscapeRequested: root.leaveAsk()
     onAssistantMessageFinished: {
       root.refreshChoiceData()
-      var nativeWindow = root.contentItem.Window.window
-      if (root.visible && nativeWindow && !nativeWindow.active) nativeWindow.requestActivate()
+      if (root.visible && String(Quickshell.env("XDG_CURRENT_DESKTOP") || "").toLowerCase().indexOf("scottland") >= 0) {
+        root.owner.attentionWindow(root.title)
+      } else if (root.visible) {
+        var nativeWindow = root.contentItem.Window.window
+        if (nativeWindow && !nativeWindow.active) nativeWindow.requestActivate()
+      }
     }
     onFontStepRequested: function(step) { root.owner.adjustFontScale(step) }
     onFontResetRequested: root.owner.setFontScale(1)

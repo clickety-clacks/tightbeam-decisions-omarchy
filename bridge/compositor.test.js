@@ -26,6 +26,24 @@ test('Scottland presents by window id', async () => {
   assert.deepEqual(calls, [['scottland/present', { window: 0x23a }]]);
 });
 
+test('Scottland marks each finished window for attention by its own id', async () => {
+  const calls = [];
+  for (const stableId of ['0000023a', '0000023b']) {
+    const ok = await backends.scottland.attendWindow({ stableId }, async (method, data) => {
+      calls.push([method, data]);
+      return { version: 1 };
+    });
+    assert.equal(ok, true);
+  }
+  assert.deepEqual(calls, [
+    ['scottland/attention', { window: 0x23a, attention: true, source: 'tightbeam-decisions' }],
+    ['scottland/attention', { window: 0x23b, attention: true, source: 'tightbeam-decisions' }],
+  ]);
+  assert.equal(await backends.scottland.attendWindow({ stableId: 'invalid' }, async () => {
+    throw new Error('called');
+  }), false);
+});
+
 test('an address that is not hexadecimal never reaches the compositor', async () => {
   assert.equal(await backends.scottland.presentWindow({ address: '0x1; rm', stableId: '1' },
     async () => { throw new Error('called'); }), false);

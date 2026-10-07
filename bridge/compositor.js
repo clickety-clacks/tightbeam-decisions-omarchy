@@ -89,6 +89,14 @@ export function wayfireCall(method, data, socketPath = wayfireSocket(), timeoutM
 const scottland = {
   name: "scottland",
   clients,
+  async attendWindow(window, call = wayfireCall) {
+    const id = Number.parseInt(String(window?.stableId || ""), 16);
+    if (!Number.isSafeInteger(id) || id <= 0) return false;
+    const reply = await call("scottland/attention", {
+      window: id, attention: true, source: "tightbeam-decisions",
+    });
+    return !!reply && !reply.error && reply.result !== "error";
+  },
   async presentWindow(window, call = wayfireCall) {
     const address = String(window?.address || "");
     if (!addressPattern.test(address)) return false;
