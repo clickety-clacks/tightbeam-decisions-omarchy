@@ -737,7 +737,7 @@ Item {
       parent.width - root.bodyHorizontalPadding - root.readingMaxWidth)
     anchors.topMargin: root.bodyTopPadding
     height: root.bodyVisible ? Math.max(0, parent.height - root.bodyTopPadding
-      - (root.dockedChoicesVisible ? dock.height : composer.height)) : 0
+      - composer.height - (root.dockedChoicesVisible ? dock.height : 0)) : 0
     contentWidth: width
     contentHeight: Math.max(0, transcript.implicitHeight)
     clip: true
