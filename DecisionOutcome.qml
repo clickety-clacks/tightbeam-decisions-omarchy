@@ -53,109 +53,93 @@ FocusScope {
     border.color: root.hairline
     border.width: 1
 
-    Column {
-      id: heading
+    // Attribution and the determination share one scroll area so long legacy
+    // explanations cannot consume the outcome viewport at compact sizes.
+    Flickable {
+      id: outcomeScroll
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.top: parent.top
-      anchors.margins: root.innerMargin
-      spacing: Math.round(8 * root.fontScale)
-
-      Text {
-        width: parent.width
-        text: root.project
-        color: root.secondary
-        font.family: root.monoFamily
-        font.pixelSize: Math.round(13 * root.fontScale)
-        font.letterSpacing: Math.round(1.2 * root.fontScale)
-      }
-
-      Text {
-        visible: root.projectReason !== ""
-        width: parent.width
-        text: root.projectReason
-        color: root.secondary
-        font.family: root.sansFamily
-        font.pixelSize: Math.round(14 * root.fontScale)
-        wrapMode: Text.Wrap
-        maximumLineCount: 3
-        elide: Text.ElideRight
-      }
-
-      Text {
-        width: parent.width
-        text: root.status === "ruled" ? "Ruled" : "Request handled"
-        color: root.foreground
-        font.family: root.newsreaderFamily
-        font.pixelSize: Math.round((card.height < 420 ? 34 : 46) * root.fontScale)
-        wrapMode: Text.Wrap
-      }
-
-      Text {
-        visible: card.height >= 420 * root.fontScale
-        width: parent.width
-        text: root.question
-        color: root.secondary
-        font.family: root.sansFamily
-        font.pixelSize: Math.round(18 * root.fontScale)
-        wrapMode: Text.Wrap
-        maximumLineCount: 3
-        elide: Text.ElideRight
-      }
-    }
-
-    Rectangle {
-      id: divider
-      anchors.left: parent.left
-      anchors.right: parent.right
       anchors.leftMargin: root.innerMargin
       anchors.rightMargin: root.innerMargin
-      anchors.top: heading.bottom
-      anchors.topMargin: Math.round((card.height < 420 * root.fontScale ? 10 : 16) * root.fontScale)
-      height: 1
-      color: root.hairline
-    }
-
-    Text {
-      id: rulingLabel
-      visible: card.height >= 420 * root.fontScale
-      anchors.left: parent.left
-      anchors.right: parent.right
-      anchors.leftMargin: root.innerMargin
-      anchors.rightMargin: root.innerMargin
-      anchors.top: divider.bottom
-      anchors.topMargin: visible ? Math.round(18 * root.fontScale) : 0
-      text: root.status === "ruled" ? "THE RULING" : root.status.toUpperCase()
-      color: root.secondary
-      font.family: root.monoFamily
-      font.pixelSize: Math.round(13 * root.fontScale)
-      font.letterSpacing: Math.round(1.2 * root.fontScale)
-    }
-
-    Flickable {
-      id: rulingScroll
-      anchors.left: parent.left
-      anchors.right: parent.right
-      anchors.leftMargin: root.innerMargin
-      anchors.rightMargin: root.innerMargin
-      anchors.top: rulingLabel.visible ? rulingLabel.bottom : divider.bottom
-      anchors.topMargin: rulingLabel.visible ? Math.round(10 * root.fontScale) : 0
+      anchors.topMargin: root.innerMargin
       anchors.bottom: closeButton.top
       anchors.bottomMargin: Math.round(22 * root.fontScale)
       clip: true
-      contentHeight: Math.max(height, rulingText.implicitHeight)
+      contentHeight: outcomeContent.implicitHeight
       interactive: contentHeight > height
 
-      Text {
-        id: rulingText
-        y: Math.max(0, (rulingScroll.height - implicitHeight) / 2)
-        width: rulingScroll.width
-        text: root.determination
-        color: root.foreground
-        font.family: root.newsreaderFamily
-        font.pixelSize: Math.round((card.height < 420 ? 25 : 32) * root.fontScale)
-        wrapMode: Text.Wrap
-        lineHeight: 1.2
+      Column {
+        id: outcomeContent
+        width: outcomeScroll.width
+        spacing: Math.round(12 * root.fontScale)
+
+        Text {
+          width: parent.width
+          text: root.project
+          color: root.secondary
+          font.family: root.monoFamily
+          font.pixelSize: Math.round(13 * root.fontScale)
+          font.letterSpacing: Math.round(1.2 * root.fontScale)
+          wrapMode: Text.Wrap
+        }
+
+        Text {
+          visible: root.projectReason !== ""
+          width: parent.width
+          text: root.projectReason
+          color: root.secondary
+          font.family: root.sansFamily
+          font.pixelSize: Math.round(14 * root.fontScale)
+          wrapMode: Text.Wrap
+        }
+
+        Text {
+          width: parent.width
+          text: root.status === "ruled" ? "Ruled" : "Request handled"
+          color: root.foreground
+          font.family: root.newsreaderFamily
+          font.pixelSize: Math.round((card.height < 420 ? 34 : 46) * root.fontScale)
+          wrapMode: Text.Wrap
+        }
+
+        Text {
+          visible: card.height >= 420 * root.fontScale
+          width: parent.width
+          text: root.question
+          color: root.secondary
+          font.family: root.sansFamily
+          font.pixelSize: Math.round(18 * root.fontScale)
+          wrapMode: Text.Wrap
+          maximumLineCount: 3
+          elide: Text.ElideRight
+        }
+
+        Rectangle {
+          width: parent.width
+          height: 1
+          color: root.hairline
+        }
+
+        Text {
+          visible: card.height >= 420 * root.fontScale
+          width: parent.width
+          text: root.status === "ruled" ? "THE RULING" : root.status.toUpperCase()
+          color: root.secondary
+          font.family: root.monoFamily
+          font.pixelSize: Math.round(13 * root.fontScale)
+          font.letterSpacing: Math.round(1.2 * root.fontScale)
+        }
+
+        Text {
+          width: parent.width
+          text: root.determination
+          color: root.foreground
+          font.family: root.newsreaderFamily
+          font.pixelSize: Math.round((card.height < 420 ? 25 : 32) * root.fontScale)
+          wrapMode: Text.Wrap
+          lineHeight: 1.2
+        }
       }
     }
 
