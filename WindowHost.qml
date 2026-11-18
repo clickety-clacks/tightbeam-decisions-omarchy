@@ -1,3 +1,4 @@
+import "project.js" as Project
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -52,19 +53,8 @@ ShellRoot {
                    from.b + (to.b - from.b) * amount, 1)
   }
   function script(name) { return pluginDir + "/" + name }
-  function poForRequest(request) {
-    var raiser = String(request && request.raiserId ? request.raiserId : "")
-    var slug = ""
-    var marker = "agent:product-owner:"
-    if (raiser.indexOf(marker) === 0) slug = raiser.substring(marker.length)
-    else if (raiser.indexOf("process:") === 0) slug = raiser.substring("process:".length)
-    else {
-      var embedded = raiser.indexOf("product-owner:")
-      if (embedded >= 0) slug = raiser.substring(embedded + "product-owner:".length)
-    }
-    slug = slug.replace(/-(codex|claude)(-.*)?$/i, "")
-    return slug === "" ? "UNASSIGNED" : slug.replace(/[-_]+/g, " ").trim().toUpperCase()
-  }
+  function poForRequest(request) { return Project.label(request) }
+
   function copyToClipboard(value) {
     if (String(value || "") !== "")
       Quickshell.execDetached(["bash", "-c", "printf %s " + Util.shellQuote(String(value)) + " | wl-copy"])

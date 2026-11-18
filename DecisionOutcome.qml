@@ -7,6 +7,8 @@ FocusScope {
   required property string status
   required property string determination
   required property string question
+  property string project: "PROJECT UNKNOWN"
+  property string projectReason: ""
   property real fontScale: 1
   property string newsreaderFamily: ""
   property string sansFamily: ""
@@ -60,13 +62,24 @@ FocusScope {
       spacing: Math.round(8 * root.fontScale)
 
       Text {
-        visible: card.height >= 420 * root.fontScale
         width: parent.width
-        text: "DECISION REQUEST"
+        text: root.project
         color: root.secondary
         font.family: root.monoFamily
         font.pixelSize: Math.round(13 * root.fontScale)
         font.letterSpacing: Math.round(1.2 * root.fontScale)
+      }
+
+      Text {
+        visible: root.projectReason !== ""
+        width: parent.width
+        text: root.projectReason
+        color: root.secondary
+        font.family: root.sansFamily
+        font.pixelSize: Math.round(14 * root.fontScale)
+        wrapMode: Text.Wrap
+        maximumLineCount: 3
+        elide: Text.ElideRight
       }
 
       Text {

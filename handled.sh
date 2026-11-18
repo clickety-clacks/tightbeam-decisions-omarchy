@@ -17,7 +17,7 @@ if [[ "$status" == ruled && -z "$recorded" && -n "$work_item_id" ]]; then
 fi
 jq -ce --arg id "$request_id" --arg traceRuling "$trace_ruling" '
   [.decisionRequests[] | select(.id == $id)][0] as $request
-  | if $request == null then
+  | (if $request == null then
       { status: "handled", actor: "", determination: "The request is no longer open." }
     elif $request.status == "ruled" then
       {
@@ -49,5 +49,10 @@ jq -ce --arg id "$request_id" --arg traceRuling "$trace_ruling" '
       }
     else
       { status: ($request.status // "handled"), actor: ($request.raiserId // ""), determination: "The request is no longer open." }
-    end
+    end)
+  + (if $request == null then {} else {
+      project: ($request.project // null),
+      projectAttribution: ($request.projectAttribution // "unresolved"),
+      projectUnresolvedReason: ($request.projectUnresolvedReason // "No product was recorded for this request.")
+    } end)
 ' <<<"$payload"

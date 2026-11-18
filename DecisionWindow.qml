@@ -1,3 +1,4 @@
+import "project.js" as Project
 import QtQuick
 import QtQuick.Window
 import QtQuick.Controls
@@ -26,7 +27,6 @@ FloatingWindow {
   property string handledStatus: "handled"
   property string handledActor: ""
   property string handledDetermination: "Loading the recorded outcome…"
-  property string projectSummary: ""
   property string parentSummary: ""
   property string noteSummary: ""
   property string questionSummary: ""
@@ -198,7 +198,7 @@ FloatingWindow {
     return [
       "You are a fast UI summarizer for one Tightbeam decision request. Do not use tools.",
       "Return ONLY one JSON object on one line; do not wrap it in Markdown.",
-      "Schema: {\"project\":\"1-3 words\",\"question\":\"a plain question, at most 25 words\",\"parent\":\"2-6 plain words\",\"notes\":\"one short line\",\"choices\":[{\"label\":\"2-7 plain words\",\"effect\":\"one sentence describing what choosing it causes\"}]}",
+      "Schema: {\"question\":\"a plain question, at most 25 words\",\"parent\":\"2-6 plain words\",\"notes\":\"one short line\",\"choices\":[{\"label\":\"2-7 plain words\",\"effect\":\"one sentence describing what choosing it causes\"}]}",
       "The choices array MUST have exactly one object per input option, in the same order.",
       "Do not alter, combine, reorder, recommend, or omit options. Do not put ids in labels.",
       "If a choice cannot be rewritten safely, use its raw option word for label and an empty effect.",
@@ -209,7 +209,6 @@ FloatingWindow {
   }
 
   function applySummaryResult(result) {
-    projectSummary = cleanWords(result.project, 3)
     questionSummary = cleanWords(result.question, 25)
     parentSummary = cleanWords(result.parent, 6)
     noteSummary = cleanSummary(result.notes, 140)
@@ -251,14 +250,7 @@ FloatingWindow {
     } catch (error) {}
   }
 
-  function displayProject() {
-    var raiser = String(root.request && root.request.raiserId || "")
-    var inferred = owner.poForRequest(root.request)
-    var nonOwnerProcess = raiser.indexOf("process:") === 0
-    if (!nonOwnerProcess && inferred !== "" && inferred !== "UNASSIGNED") return inferred
-    if (root.projectSummary !== "") return root.projectSummary.toUpperCase()
-    return inferred !== "" && inferred !== "UNASSIGNED" ? inferred : "TIGHTBEAM"
-  }
+  function displayProject() { return Project.label(root.request) }
 
   function formatRaisedAt(value) {
     var date = new Date(value)
@@ -517,7 +509,6 @@ FloatingWindow {
   }
 
   function resetSummary() {
-    projectSummary = ""
     parentSummary = ""
     noteSummary = ""
     questionSummary = ""
@@ -574,6 +565,13 @@ FloatingWindow {
   function applyHandledPayload(raw) {
     try {
       var payload = JSON.parse(String(raw || ""))
+      if (payload.projectAttribution !== undefined) {
+        var updated = Object.assign({}, root.request)
+        updated.project = payload.project
+        updated.projectAttribution = payload.projectAttribution
+        updated.projectUnresolvedReason = payload.projectUnresolvedReason
+        root.request = updated
+      }
       handledStatus = String(payload.status || "handled")
       handledActor = String(payload.actor || "")
       var ruling = String(payload.determination || "The request is no longer open.")
@@ -759,6 +757,9 @@ FloatingWindow {
           // Shares the line by priority: project, then time, then kind.
           width: Math.min(implicitWidth, root.eyebrowRoom * 0.5)
           text: root.projectText
+          ToolTip.visible: projectHover.hovered && Project.reason(root.request) !== ""
+          ToolTip.text: Project.reason(root.request)
+          HoverHandler { id: projectHover }
           color: root.ink
           font.family: root.monoMediumFamily !== "" ? root.monoMediumFamily : root.monoFamily
           font.pixelSize: Math.round(13 * root.fontScale)
@@ -1133,6 +1134,8 @@ FloatingWindow {
     status: root.handledStatus
     determination: root.handledDetermination
     question: root.questionText
+    project: root.projectText
+    projectReason: Project.reason(root.request)
     fontScale: root.fontScale
     newsreaderFamily: root.newsreaderFamily
     sansFamily: root.sansFamily
