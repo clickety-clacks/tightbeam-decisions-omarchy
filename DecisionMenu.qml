@@ -1,3 +1,4 @@
+import "project.js" as Project
 import QtQuick
 import QtQuick.Controls
 import Quickshell
@@ -80,22 +81,8 @@ Panel {
     var value = settings ? settings[name] : undefined
     return value === undefined || value === null ? fallback : value
   }
-  function poForRequest(request) {
-    var raiser = String(request && request.raiserId ? request.raiserId : "")
-    var slug = ""
-    var poMarker = "agent:product-owner:"
-    if (raiser.indexOf(poMarker) === 0) slug = raiser.substring(poMarker.length)
-    else if (raiser.indexOf("process:") === 0) slug = raiser.substring("process:".length)
-    else {
-      var embeddedPo = raiser.indexOf("product-owner:")
-      if (embeddedPo >= 0) slug = raiser.substring(embeddedPo + "product-owner:".length)
-    }
-    // Harness and relief-role suffixes describe the particular PO session,
-    // not the top-level product organization it owns.
-    slug = slug.replace(/-(codex|claude)(-.*)?$/i, "")
-    if (slug === "") return "UNASSIGNED"
-    return slug.replace(/[-_]+/g, " ").trim().toUpperCase()
-  }
+  function poForRequest(request) { return Project.label(request) }
+
   function script(name) { return Qt.resolvedUrl(name).toString().replace("file://", "") }
   function refreshNow() {
     if (fetchProcess.running) return

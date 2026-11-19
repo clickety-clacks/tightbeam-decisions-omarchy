@@ -10,13 +10,8 @@ state_dir="${XDG_STATE_HOME:-${HOME}/.local/state}/omarchy-tightbeam-decisions"
 seen_file="${state_dir}/seen-ids"
 
 payload=$(tb decision-requests --status open)
-# A decision request names no project -- only the assignment it came from does,
-# via that assignment's subject and work item. Open assignments are ~200KB
-# against ~8MB for every assignment ever, and an open request's assignment is
-# open too, so this stays a cheap second call. A request whose assignment has
-# since closed simply gets no subject rather than failing the fetch.
-# Written to a file rather than passed with --argjson: the open set is ~200KB
-# and handing that to jq through argv is fragile.
+# Assignment subjects supplement the question; product attribution comes only
+# from the request. Keep the open-assignment payload out of argv.
 assignments_file=$(mktemp "${TMPDIR:-/tmp}/tb-assignments.XXXXXX")
 trap 'rm -f "$assignments_file"' EXIT
 tb assignments --state open >"$assignments_file" 2>/dev/null || echo '{"assignments":[]}' >"$assignments_file"
@@ -38,7 +33,11 @@ jq -c --argjson seen "$seen" --slurpfile asg "$assignments_file" '
       kind,
       question,
       subject: ($assignment.subject // ""),
-      workItemId: ($assignment.workItemId // ""),
+      project: (.project // null),
+      projectAttribution: (.projectAttribution // "unresolved"),
+      projectUnresolvedReason: (.projectUnresolvedReason // "No product was recorded for this request."),
+      associationStatus: (.associationStatus // "none"),
+      workItemId: (.workItemId // $assignment.workItemId // ""),
       note: (.context.note // ""),
       assignmentId,
       raisedAt,
